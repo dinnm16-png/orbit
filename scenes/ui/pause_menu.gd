@@ -57,6 +57,7 @@ func _ready() -> void:
 	_toggles["sound"] = _make_toggle(box, "Sound")
 	_toggles["haptics"] = _make_toggle(box, "Vibration")
 	_toggles["planet_numbers"] = _make_toggle(box, "Planet numbers")
+	_toggles["movable_launcher"] = _make_toggle(box, "Slide launcher")
 
 
 func open() -> void:
@@ -78,7 +79,8 @@ func _on_toggle(key: String, value: bool) -> void:
 
 
 func _make_toggle(parent: Control, text: String) -> SwitchToggle:
-	var key: String = {"Sound": "sound", "Vibration": "haptics", "Planet numbers": "planet_numbers"}[text]
+	var key: String = {"Sound": "sound", "Vibration": "haptics", "Planet numbers": "planet_numbers",
+		"Slide launcher": "movable_launcher"}[text]
 	var toggle := SwitchToggle.new()
 	toggle.text = text
 	toggle.custom_minimum_size = Vector2(320, 56)

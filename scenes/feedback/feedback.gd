@@ -57,6 +57,10 @@ static func _generate_sounds() -> void:
 		result["merge_%d" % level] = ToneSynth.bell(ToneSynth.merge_frequency(level), 0.7)
 	result["vanish"] = ToneSynth.chord([523.25, 659.25, 783.99, 1046.5], 1.4)
 	result["game_over"] = ToneSynth.chord([220.0, 261.63, 329.63], 1.6, 2.2)
+	result["pulse"] = ToneSynth.chord([98.0, 146.83, 196.0], 0.9, 3.5)
+	result["shatter"] = ToneSynth.bell(1046.5, 0.35, 9.0)
+	result["swallow"] = ToneSynth.bell(110.0, 1.0, 3.0)
+	result["downgrade"] = ToneSynth.bell(392.0, 0.4, 7.0)
 	_store_sounds.call_deferred(result)
 
 
@@ -83,6 +87,22 @@ func on_merge(new_level: int, chain_depth: int) -> void:
 func on_vanish() -> void:
 	_play("vanish", 1.0, 0.0)
 	_vibrate(40, 0.8)
+
+
+## Special planet effects: "downgrade", "shatter", "swallow".
+func on_special(event: String) -> void:
+	_play(event, 1.0, -2.0)
+	_vibrate(20 if event == "swallow" else 12, 0.5)
+
+
+func on_pulse() -> void:
+	_play("pulse", 1.0, 0.0)
+	_vibrate(35, 0.7)
+
+
+func on_hold() -> void:
+	_play("launch", 0.75, -10.0)
+	_vibrate(6, 0.2)
 
 
 func on_game_over() -> void:

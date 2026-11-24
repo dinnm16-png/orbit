@@ -25,10 +25,26 @@ var enabled: bool = true:
 			_touch_index = -1
 			queue_redraw()
 
+## Movable launcher: slide sideways along a track (see _unhandled_input).
+var movable: bool = true:
+	set(value):
+		movable = value
+		queue_redraw()
+## Track limits (global x). Main sets these from the layout.
+var track_min_x: float = 200.0
+var track_max_x: float = 520.0
+
 ## Which finger is aiming (-1 = nobody). Extra fingers are ignored.
 var _touch_index: int = -1
 var _drag_start: Vector2 = Vector2.ZERO
 var _drag_current: Vector2 = Vector2.ZERO
+## Gesture state: a touch that starts on the launcher is undecided until it
+## moves; mostly-sideways = slide the launcher, otherwise = aim.
+enum Gesture { NONE, UNDECIDED, AIM, SLIDE }
+var _gesture: Gesture = Gesture.NONE
+var _slide_start_x: float = 0.0
+
+const SLIDE_DECIDE_DISTANCE := 14.0
 
 
 func setup(p_config: GameConfig) -> void:
@@ -43,7 +59,11 @@ func load_planet(planet: Planet) -> void:
 
 
 func is_aiming() -> bool:
-	return _touch_index != -1
+	return _touch_index != -1 and _gesture != Gesture.SLIDE
+
+
+func is_sliding() -> bool:
+	return _touch_index != -1 and _gesture == Gesture.SLIDE
 
 
 ## Current launch velocity for the active drag (ZERO = would cancel).
@@ -62,6 +82,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			_touch_index = touch.index
 			_drag_start = touch.position
 			_drag_current = touch.position
+			_slide_start_x = global_position.x
+			var on_pad := touch.position.distance_to(global_position) < loaded_planet.radius + 34.0
+			_gesture = Gesture.UNDECIDED if (movable and on_pad) else Gesture.AIM
 			get_viewport().set_input_as_handled()
 		elif not touch.pressed and touch.index == _touch_index:
 			_drag_current = touch.position
@@ -70,17 +93,37 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif touch.canceled and touch.index == _touch_index:
 			# OS interrupted the touch (e.g. notification): cancel, never fire.
 			_touch_index = -1
+			_gesture = Gesture.NONE
 			queue_redraw()
 	elif event is InputEventScreenDrag:
 		var drag := event as InputEventScreenDrag
 		if drag.index == _touch_index:
 			_drag_current = drag.position
+			var delta := _drag_current - _drag_start
+			if _gesture == Gesture.UNDECIDED and delta.length() >= SLIDE_DECIDE_DISTANCE:
+				# Aiming pulls go mostly downward; a mostly sideways drag that
+				# started on the launcher means "move the launcher".
+				_gesture = Gesture.SLIDE if absf(delta.x) > 2.0 * absf(delta.y) else Gesture.AIM
+			if _gesture == Gesture.SLIDE:
+				_slide_to(_slide_start_x + delta.x)
 			queue_redraw()
 			get_viewport().set_input_as_handled()
 
 
+func _slide_to(x: float) -> void:
+	global_position.x = clampf(x, track_min_x, track_max_x)
+	if loaded_planet:
+		loaded_planet.global_position = global_position
+		loaded_planet.reset_physics_interpolation()
+
+
 func _release() -> void:
 	_touch_index = -1
+	var gesture := _gesture
+	_gesture = Gesture.NONE
+	if gesture == Gesture.SLIDE:
+		queue_redraw()
+		return  # Sliding never launches.
 	var velocity := current_launch_velocity()
 	if velocity != Vector2.ZERO and loaded_planet != null:
 		fire(velocity)
@@ -101,6 +144,18 @@ func fire(velocity: Vector2) -> void:
 func _draw() -> void:
 	# Launch pad: a subtle ring where the next planet waits.
 	draw_arc(Vector2.ZERO, 46.0, 0.0, TAU, 64, Color(COLOR_VIOLET, 0.25), 1.2, true)
+	if movable:
+		# Slide track with small chevrons at both ends.
+		var y := 62.0
+		var x0 := track_min_x - global_position.x
+		var x1 := track_max_x - global_position.x
+		var a := 0.35 if is_sliding() else 0.12
+		draw_line(Vector2(x0, y), Vector2(x1, y), Color(COLOR_WHITE, a), 1.5, true)
+		for side in [-1.0, 1.0]:
+			var tip := Vector2(x0 - 12.0 if side < 0.0 else x1 + 12.0, y)
+			draw_polyline(PackedVector2Array([tip + Vector2(-side * 6.0, -6.0), tip, tip + Vector2(-side * 6.0, 6.0)]),
+				Color(COLOR_WHITE, a + 0.1), 1.5, true)
+		draw_circle(Vector2(0, y), 3.5, Color(COLOR_AQUA, 0.9 if is_sliding() else 0.5), true, -1.0, true)
 
 	if not is_aiming() or loaded_planet == null:
 		return

@@ -75,6 +75,23 @@ const MAX_LEVELS := 12
 ## Short vibrations on phones (launch, merge, game over).
 @export var haptics_enabled: bool = true
 
+@export_group("Special planets")
+## Chance that a rolled planet is special (after special_min_launches).
+@export_range(0.0, 1.0) var special_chance: float = 0.07
+## No specials during the first launches (learn the basics first).
+@export var special_min_launches: int = 8
+## Relative weights: wildcard, comet, black hole, anchor.
+@export var special_weights: PackedFloat32Array = PackedFloat32Array([0.35, 0.25, 0.2, 0.2])
+@export var anchor_mass_multiplier: float = 10.0
+
+@export_group("Abilities")
+## Merges needed to charge one gravity pulse.
+@export var pulse_merges_needed: int = 10
+## Inward speed change (px/s) the pulse gives every planet.
+@export var pulse_impulse: float = 420.0
+## The launcher can slide this far left/right of the center (px).
+@export var launcher_track_half_width: float = 160.0
+
 @export_group("Merging")
 ## Fraction of the pair's momentum the merged planet keeps (0..1).
 @export_range(0.0, 1.0) var merge_velocity_keep: float = 0.5

@@ -9,6 +9,10 @@ extends RefCounted
 ## per physics step** (the duplicate-merge guard).
 
 enum Outcome { NONE, MERGE, VANISH }
+## Everything that can happen when two planets touch (special planets included).
+enum Action { NONE, MERGE, VANISH, DOWNGRADE, SWALLOW, DESTROY_BOTH }
+
+const K := PlanetKind.Kind
 
 
 ## What happens when planets of these two levels touch.
@@ -20,6 +24,78 @@ static func outcome(level_a: int, level_b: int, max_level: int, max_pairs_vanish
 	if level_a < max_level:
 		return Outcome.MERGE
 	return Outcome.VANISH if max_pairs_vanish else Outcome.NONE
+
+
+## What happens when planet A (kind ka, level la) touches planet B.
+## Returns { "action": Action, "actor": 0 (A acts) or 1 (B acts) }.
+## The actor matters for one-sided actions: the comet that downgrades, the
+## black hole that swallows.
+static func interaction(ka: int, la: int, kb: int, lb: int, max_level: int, max_pairs_vanish: bool) -> Dictionary:
+	if ka == K.BLACK_HOLE or kb == K.BLACK_HOLE:
+		if ka == K.BLACK_HOLE and kb == K.BLACK_HOLE:
+			return {"action": Action.DESTROY_BOTH, "actor": 0}
+		return {"action": Action.SWALLOW, "actor": 0 if ka == K.BLACK_HOLE else 1}
+	if ka == K.COMET or kb == K.COMET:
+		var other_kind := kb if ka == K.COMET else ka
+		if other_kind == K.COMET or other_kind == K.WILDCARD:
+			return {"action": Action.DESTROY_BOTH, "actor": 0}
+		return {"action": Action.DOWNGRADE, "actor": 0 if ka == K.COMET else 1}
+	if ka == K.WILDCARD or kb == K.WILDCARD:
+		if ka == K.WILDCARD and kb == K.WILDCARD:
+			return {"action": Action.MERGE, "actor": 0}
+		var other_level := lb if ka == K.WILDCARD else la
+		if other_level < max_level:
+			return {"action": Action.MERGE, "actor": 0}
+		return {"action": Action.VANISH if max_pairs_vanish else Action.NONE, "actor": 0}
+	# Normal planets and anchors merge by level.
+	match outcome(la, lb, max_level, max_pairs_vanish):
+		Outcome.MERGE:
+			return {"action": Action.MERGE, "actor": 0}
+		Outcome.VANISH:
+			return {"action": Action.VANISH, "actor": 0}
+	return {"action": Action.NONE, "actor": 0}
+
+
+## Level of the planet created by a MERGE between A and B.
+static func merge_result_level(ka: int, la: int, kb: int, lb: int) -> int:
+	if ka == K.WILDCARD and kb == K.WILDCARD:
+		return 1
+	if ka == K.WILDCARD:
+		return lb + 1
+	if kb == K.WILDCARD:
+		return la + 1
+	return la + 1
+
+
+## Like find_pairs(), for planets of any kind. `kinds`: id -> PlanetKind.Kind.
+## Returns an Array of { "a", "b", "action", "actor" }; every id at most once.
+static func find_interactions(order: Array, levels: Dictionary, kinds: Dictionary, contacts: Dictionary,
+		max_level: int, max_pairs_vanish: bool) -> Array:
+	var rank := {}
+	for i in order.size():
+		rank[order[i]] = i
+	var used := {}
+	var result := []
+	for a in order:
+		if used.has(a) or not levels.has(a):
+			continue
+		var best = null
+		var best_info := {}
+		for b in contacts.get(a, []):
+			if b == a or used.has(b) or not levels.has(b) or not rank.has(b):
+				continue
+			var info := interaction(kinds.get(a, K.NORMAL), levels[a], kinds.get(b, K.NORMAL), levels[b],
+				max_level, max_pairs_vanish)
+			if info["action"] == Action.NONE:
+				continue
+			if best == null or rank[b] < rank[best]:
+				best = b
+				best_info = info
+		if best != null:
+			used[a] = true
+			used[best] = true
+			result.append({"a": a, "b": best, "action": best_info["action"], "actor": best_info["actor"]})
+	return result
 
 
 ## Chooses which touching pairs merge this step.

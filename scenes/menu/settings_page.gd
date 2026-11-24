@@ -18,6 +18,8 @@ func _ready() -> void:
 	_section("GAME FEEL")
 	_toggle("sound", "Sound")
 	_toggle("haptics", "Vibration")
+	_section("CONTROLS")
+	_toggle("movable_launcher", "Slide launcher sideways")
 	_section("ACCESSIBILITY")
 	_toggle("planet_numbers", "Planet numbers")
 	var spacer := Control.new()

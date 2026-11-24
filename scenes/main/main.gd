@@ -18,6 +18,8 @@ enum EndReason { COLLAPSE, TIME, SHOTS }
 const COLOR_AQUA := Color("#52E5D5")
 const COLOR_WHITE := Color("#F5F5FA")
 const BURST_SCRIPT := preload("res://scenes/effects/merge_burst.gd")
+const PULSE_WAVE := preload("res://scenes/effects/pulse_wave.gd")
+const SPECIAL_TEXT := {"downgrade": "−1", "shatter": "SHATTERED", "swallow": "SWALLOWED"}
 const CORE_SCENE := preload("res://scenes/core/gravity_core.tscn")
 const MENU_SCENE := "res://scenes/menu/menu.tscn"
 const END_TITLES := {
@@ -39,8 +41,14 @@ var state: State = State.PLAYING
 var end_reason: EndReason = EndReason.COLLAPSE
 var score: int = 0
 var best_score: int = 0
-## Level of the planet that will be loaded after the current one.
+## The planet that will be loaded after the current one.
 var next_level: int = 0
+var next_kind: int = PlanetKind.Kind.NORMAL
+## Hold slot: {} when empty, else {"level", "kind"}. One use per launch.
+var held: Dictionary = {}
+var hold_used: bool = false
+## Gravity pulse charge (merges since last pulse).
+var pulse_charge: int = 0
 var settings: PlayerSettings
 ## Safe-area margins (notch, home indicator) in canvas units.
 var insets: Dictionary = {"top": 0.0, "bottom": 0.0, "left": 0.0, "right": 0.0}
@@ -65,6 +73,7 @@ var _monitor: BoundaryMonitor
 var _store: HighScoreStore
 var _since_last_shot: float = 0.0
 var _status_text: String = ""
+var _pieces_rolled: int = 0
 
 @onready var core: GravityCore = $GravityCore
 @onready var arena: ArenaRing = $Arena
@@ -76,6 +85,11 @@ var _status_text: String = ""
 @onready var best_label: Label = $HUD/Best
 @onready var status_label: Label = $HUD/Status
 @onready var next_label: Label = $HUD/NextLabel
+@onready var hold_slot: NextPreview = $HoldSlot
+@onready var hold_label: Label = $HUD/HoldLabel
+@onready var hold_button: Button = $HUD/HoldButton
+@onready var piece_info: Label = $HUD/PieceInfo
+@onready var pulse_button: PulseButton = $HUD/PulseButton
 @onready var game_over_panel: GameOverPanel = $HUD/GameOver
 @onready var pause_button: PauseButton = $HUD/PauseButton
 @onready var pause_menu: PauseMenu = $HUD/PauseMenu
@@ -96,6 +110,7 @@ func _enter_tree() -> void:
 	$Launcher.setup(config)
 	$PlanetField.setup(config)
 	$NextPreview.setup(config)
+	$HoldSlot.setup(config)
 	$Feedback.setup(config)
 
 
@@ -142,6 +157,13 @@ func _ready() -> void:
 	launcher.planet_launched.connect(_on_planet_launched)
 	field.planets_merged.connect(_on_planets_merged)
 	field.planets_vanished.connect(_on_planets_vanished)
+	field.special_event.connect(_on_special_event)
+	hold_button.pressed.connect(hold)
+	pulse_button.pressed.connect(pulse)
+	hold_slot.visible = mode.hold_enabled
+	hold_label.visible = mode.hold_enabled
+	hold_button.visible = mode.hold_enabled
+	pulse_button.visible = mode.pulse_enabled
 	game_over_panel.restart_requested.connect(restart)
 	game_over_panel.menu_requested.connect(go_to_menu)
 	pause_button.pressed.connect(pause)
@@ -151,7 +173,7 @@ func _ready() -> void:
 	pause_menu.settings_changed.connect(_apply_settings)
 
 	_set_score(0)
-	next_level = _roll_level()
+	_roll_next()
 	_load_next_planet()
 	_update_status()
 
@@ -181,12 +203,22 @@ func _layout() -> void:
 		centers.append(cores[i].global_position)
 	field.gravity_centers = centers
 	field.arena_center = arena_center
-	launcher.position = Vector2(rect.get_center().x, rect.end.y - bottom - config.launch_offset_from_bottom)
+	var launch_y := rect.end.y - bottom - config.launch_offset_from_bottom
+	launcher.position = Vector2(rect.get_center().x, launch_y)
+	launcher.track_min_x = rect.get_center().x - config.launcher_track_half_width
+	launcher.track_max_x = rect.get_center().x + config.launcher_track_half_width
 	if launcher.loaded_planet:
 		launcher.loaded_planet.global_position = launcher.global_position
 		launcher.loaded_planet.reset_physics_interpolation()
-	next_preview.position = launcher.position + Vector2(170.0, 0.0)
+	# HOLD bottom-left, NEXT bottom-right: fixed, so the launcher can slide between them.
+	next_preview.position = Vector2(rect.end.x - 96.0, launch_y)
 	next_label.position = next_preview.position + Vector2(-60.0, -72.0)
+	hold_slot.position = Vector2(rect.position.x + 96.0, launch_y)
+	hold_label.position = hold_slot.position + Vector2(-60.0, -72.0)
+	hold_button.position = hold_slot.position - hold_button.size * 0.5
+	piece_info.position = Vector2(rect.position.x, launch_y - 108.0)
+	piece_info.size.x = rect.size.x
+	pulse_button.position = Vector2(rect.end.x - insets["right"] - 92.0, rect.position.y + top + 20.0)
 	hint.position = Vector2(rect.position.x, rect.end.y - bottom - 70.0)
 	hint.size.x = rect.size.x
 	score_label.position = Vector2(rect.position.x, rect.position.y + top + 70.0)
@@ -202,17 +234,87 @@ func _roll_level() -> int:
 	return rng.randi_range(0, config.spawn_max_level)
 
 
+## Rolls the next queued planet. After the first few launches, a planet can
+## be special. Uses only `rng`, so Daily Orbit stays identical for everyone.
+func _roll_next() -> void:
+	next_level = _roll_level()
+	next_kind = PlanetKind.Kind.NORMAL
+	_pieces_rolled += 1
+	if mode.specials and _pieces_rolled > config.special_min_launches and rng.randf() < config.special_chance:
+		var w := config.special_weights
+		var pick := rng.randf() * (w[0] + w[1] + w[2] + w[3])
+		var kinds := [PlanetKind.Kind.WILDCARD, PlanetKind.Kind.COMET, PlanetKind.Kind.BLACK_HOLE, PlanetKind.Kind.ANCHOR]
+		for i in 4:
+			if pick < w[i]:
+				next_kind = kinds[i]
+				break
+			pick -= w[i]
+
+
 func _load_next_planet() -> void:
 	if state != State.PLAYING:
 		return
 	if mode.has_shot_limit() and shots_left <= 0:
 		return
 	var level := next_level
-	next_level = _roll_level()
-	launcher.load_planet(field.spawn_planet(level, launcher.global_position))
+	var kind := next_kind
+	_roll_next()
+	_load_piece(level, kind)
 	# With a shot limit, the last planet has no "next".
 	var has_next := not mode.has_shot_limit() or shots_left > 1
-	next_preview.show_level(next_level if has_next else -1)
+	next_preview.show_piece(next_level if has_next else -1, next_kind)
+
+
+func _load_piece(level: int, kind: int) -> void:
+	launcher.load_planet(field.spawn_planet(level, launcher.global_position, false, Vector2.ZERO, kind))
+	# Special planets explain themselves the first moment they appear.
+	if kind != PlanetKind.Kind.NORMAL:
+		piece_info.text = "%s  ·  %s" % [PlanetKind.NAMES[kind].to_upper(), PlanetKind.HINTS[kind]]
+		piece_info.modulate.a = 0.0
+		create_tween().tween_property(piece_info, "modulate:a", 1.0, 0.3)
+	else:
+		piece_info.text = ""
+
+
+# --- Hold & pulse ----------------------------------------------------------------
+
+## Store the loaded planet, or swap it with the held one. Once per launch.
+func hold() -> void:
+	if not mode.hold_enabled or state != State.PLAYING or hold_used or launcher.loaded_planet == null:
+		return
+	var current: Planet = launcher.loaded_planet
+	var piece := {"level": current.level, "kind": current.kind}
+	launcher.loaded_planet = null
+	current.consume()
+	if held.is_empty():
+		held = piece
+		_load_next_planet()
+	else:
+		var swap := held
+		held = piece
+		_load_piece(swap["level"], swap["kind"])
+	hold_used = true
+	hold_slot.show_piece(held["level"], held["kind"])
+	hold_slot.dimmed = true
+	feedback.on_hold()
+
+
+## Gravity pulse: every planet gets an inward push toward the core(s).
+func pulse() -> void:
+	if not mode.pulse_enabled or state != State.PLAYING or pulse_charge < config.pulse_merges_needed:
+		return
+	for planet in field.get_active_planets():
+		var dir := OrbitPhysics.gravity_acceleration_multi(planet.global_position, field.gravity_centers, 1.0)
+		if dir.length() > 0.0:
+			planet.sleeping = false
+			planet.apply_central_impulse(dir.normalized() * planet.mass * config.pulse_impulse)
+	pulse_charge = 0
+	pulse_button.charge = 0.0
+	var wave: PulseWave = PULSE_WAVE.new()
+	wave.from_radius = arena_radius
+	wave.position = arena_center
+	effects.add_child(wave)
+	feedback.on_pulse()
 
 
 func _on_planet_launched(planet: Planet) -> void:
@@ -221,6 +323,9 @@ func _on_planet_launched(planet: Planet) -> void:
 		create_tween().tween_property(hint, "modulate:a", 0.0, 0.6)
 	shots_fired += 1
 	_since_last_shot = 0.0
+	hold_used = false
+	hold_slot.dimmed = false
+	piece_info.text = ""
 	if mode.has_shot_limit():
 		shots_left -= 1
 	if not mode.has_shot_limit() or shots_left > 0:
@@ -237,6 +342,9 @@ func _on_planets_merged(planet: Planet, chain_depth: int) -> void:
 		_spawn_burst(planet.global_position, planet.base_color, planet.radius, 1.0)
 		feedback.on_merge(planet.level, chain_depth)
 		_apply_merge_mode_rules(planet, chain_depth)
+		if mode.pulse_enabled:
+			pulse_charge = mini(pulse_charge + 1, config.pulse_merges_needed)
+			pulse_button.charge = float(pulse_charge) / config.pulse_merges_needed
 
 
 func _on_planets_vanished(at: Vector2, level: int, chain_depth: int) -> void:
@@ -244,6 +352,14 @@ func _on_planets_vanished(at: Vector2, level: int, chain_depth: int) -> void:
 	if _add_score(points, at, chain_depth):
 		_spawn_burst(at, COLOR_WHITE, config.get_planet_radius(level), 2.0)
 		feedback.on_vanish()
+
+
+func _on_special_event(event: String, at: Vector2, color: Color) -> void:
+	if state != State.PLAYING:
+		return
+	_spawn_burst(at, color, 26.0, 1.4 if event == "swallow" else 1.0)
+	_show_text_popup(SPECIAL_TEXT.get(event, ""), at - Vector2(0, 40), Color(color.lightened(0.3), 0.95), 22)
+	feedback.on_special(event)
 
 
 ## Blitz: chains add time. Collapse: merges push the ring back out.
@@ -449,6 +565,8 @@ func _apply_settings() -> void:
 	feedback.haptics_on = settings.haptics
 	field.show_numbers = settings.planet_numbers
 	next_preview.show_number = settings.planet_numbers
+	hold_slot.show_number = settings.planet_numbers
+	launcher.movable = settings.movable_launcher
 
 
 ## The OS tells us when the app goes to the background (home button, phone

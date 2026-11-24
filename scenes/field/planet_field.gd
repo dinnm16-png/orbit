@@ -11,6 +11,8 @@ extends Node2D
 
 signal planets_merged(new_planet: Planet, chain_depth: int)
 signal planets_vanished(position: Vector2, level: int, chain_depth: int)
+## Special-planet effects: "downgrade", "shatter", "swallow".
+signal special_event(event: String, position: Vector2, color: Color)
 
 const PLANET_SCENE := preload("res://scenes/planet/planet.tscn")
 
@@ -41,9 +43,10 @@ func setup(p_config: GameConfig) -> void:
 
 
 ## Creates a planet. Inactive planets wait frozen (e.g. at the launcher).
-func spawn_planet(level: int, at: Vector2, active: bool = false, velocity: Vector2 = Vector2.ZERO) -> Planet:
+func spawn_planet(level: int, at: Vector2, active: bool = false, velocity: Vector2 = Vector2.ZERO,
+		kind: int = PlanetKind.Kind.NORMAL) -> Planet:
 	var planet: Planet = PLANET_SCENE.instantiate()
-	planet.setup(config, level, gravity_centers)
+	planet.setup(config, level, gravity_centers, kind)
 	planet.position = at
 	planet.born_time = time
 	planet.show_number = show_numbers
@@ -87,12 +90,14 @@ func _physics_process(delta: float) -> void:
 func _resolve_merges() -> void:
 	var order := []
 	var levels := {}
+	var kinds := {}
 	var contacts := {}
 	var by_id := {}
 	for planet in get_active_planets():
 		var id := planet.get_instance_id()
 		order.append(id)
 		levels[id] = planet.level
+		kinds[id] = planet.kind
 		by_id[id] = planet
 		var touching := []
 		for body in planet.get_colliding_bodies():
@@ -100,35 +105,86 @@ func _resolve_merges() -> void:
 				touching.append(body.get_instance_id())
 		contacts[id] = touching
 
-	var pairs := MergeRules.find_pairs(order, levels, contacts,
+	# One resolver for every interaction (merges AND special planets), so the
+	# rule "each planet takes part in at most one interaction per step" holds.
+	var found := MergeRules.find_interactions(order, levels, kinds, contacts,
 		config.level_count() - 1, config.max_level_pairs_vanish)
-	for pair in pairs:
-		_merge(by_id[pair[0]], by_id[pair[1]])
+	for it in found:
+		var a: Planet = by_id[it["a"]]
+		var b: Planet = by_id[it["b"]]
+		var actor := a if it["actor"] == 0 else b
+		var other := b if it["actor"] == 0 else a
+		match it["action"]:
+			MergeRules.Action.MERGE:
+				_merge(a, b, MergeRules.merge_result_level(a.kind, a.level, b.kind, b.level))
+			MergeRules.Action.VANISH:
+				_vanish(a, b)
+			MergeRules.Action.DOWNGRADE:
+				_downgrade(actor, other)
+			MergeRules.Action.SWALLOW:
+				_swallow(actor, other)
+			MergeRules.Action.DESTROY_BOTH:
+				_destroy_both(a, b)
 
 
-func _merge(a: Planet, b: Planet) -> void:
+func _merge(a: Planet, b: Planet, new_level: int) -> void:
 	var depth := MergeRules.next_chain_depth(
 		a.chain_depth, time - a.born_time, b.chain_depth, time - b.born_time, config.chain_window)
 	var pos := MergeRules.center_of_mass(a.global_position, a.mass, b.global_position, b.mass)
 	var vel := MergeRules.merged_velocity(
 		a.linear_velocity, a.mass, b.linear_velocity, b.mass, config.merge_velocity_keep)
-	var outcome := MergeRules.outcome(a.level, b.level, config.level_count() - 1, config.max_level_pairs_vanish)
-	var level := a.level
-	var old_radius := a.radius
+	var old_radius := minf(a.radius, b.radius) if a.kind == PlanetKind.Kind.WILDCARD or b.kind == PlanetKind.Kind.WILDCARD else a.radius
+	_remove(a, b)
+	var merged := spawn_planet(mini(new_level, config.level_count() - 1), to_local(pos), true, vel)
+	merged.chain_depth = depth
+	merged.start_grow(old_radius)
+	planets_merged.emit(merged, depth)
 
+
+func _vanish(a: Planet, b: Planet) -> void:
+	var depth := MergeRules.next_chain_depth(
+		a.chain_depth, time - a.born_time, b.chain_depth, time - b.born_time, config.chain_window)
+	var pos := MergeRules.center_of_mass(a.global_position, a.mass, b.global_position, b.mass)
+	var level := maxi(a.level, b.level)
+	_remove(a, b)
+	planets_vanished.emit(pos, level, depth)
+
+
+## Comet hits a planet: the planet drops one level (level 0 shatters).
+func _downgrade(comet: Planet, target: Planet) -> void:
+	var pos := target.global_position
+	var vel := target.linear_velocity
+	var color := target.base_color
+	var level := target.level
+	var kind := target.kind
+	_remove(comet, target)
+	if level <= 0:
+		special_event.emit("shatter", pos, color)
+		return
+	var smaller := spawn_planet(level - 1, to_local(pos), true, vel * 0.5, kind)
+	smaller.born_time = time - config.chain_window  # Not part of a chain.
+	special_event.emit("downgrade", pos, config.get_planet_color(level - 1))
+
+
+## Black hole touches a planet: both disappear.
+func _swallow(hole: Planet, target: Planet) -> void:
+	var pos := hole.global_position
+	_remove(hole, target)
+	special_event.emit("swallow", pos, Color("#917AFF"))
+
+
+func _destroy_both(a: Planet, b: Planet) -> void:
+	var pos := (a.global_position + b.global_position) * 0.5
+	var color := a.base_color
+	_remove(a, b)
+	special_event.emit("shatter", pos, color)
+
+
+func _remove(a: Planet, b: Planet) -> void:
 	_wake_neighbours(a)
 	_wake_neighbours(b)
 	a.consume()
 	b.consume()
-
-	if outcome == MergeRules.Outcome.VANISH:
-		planets_vanished.emit(pos, level, depth)
-		return
-
-	var merged := spawn_planet(level + 1, to_local(pos), true, vel)
-	merged.chain_depth = depth
-	merged.start_grow(old_radius)
-	planets_merged.emit(merged, depth)
 
 
 ## Planets resting on a removed planet must not stay asleep floating in mid-air.

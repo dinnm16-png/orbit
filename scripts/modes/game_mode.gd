@@ -45,6 +45,10 @@ extends Resource
 @export var daily_seed: bool = false
 ## Special planets (wildcard, comet...) may appear.
 @export var specials: bool = true
+## Hold slot (store one planet, swap later).
+@export var hold_enabled: bool = true
+## Gravity pulse ability (charged by merges).
+@export var pulse_enabled: bool = true
 ## Difficulty setting applies (fixed-rules modes like Daily ignore it).
 @export var difficulty_applies: bool = true
 

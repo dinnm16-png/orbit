@@ -13,6 +13,8 @@ signal launched(planet: Planet)
 
 ## Level 0 is the smallest planet. Merging creates a new planet one level up.
 var level: int = 0
+## NORMAL, or a special planet (wildcard, comet, black hole, anchor).
+var kind: int = PlanetKind.Kind.NORMAL
 var radius: float = 20.0
 var base_color: Color = Color.WHITE
 var config: GameConfig
@@ -48,11 +50,12 @@ var _grow_elapsed: float = INF
 @onready var _overlay: Node2D = $Visual/Overlay
 
 
-func setup(p_config: GameConfig, p_level: int, p_gravity_centers: Array) -> void:
+func setup(p_config: GameConfig, p_level: int, p_gravity_centers: Array, p_kind: int = PlanetKind.Kind.NORMAL) -> void:
 	config = p_config
-	level = clampi(p_level, 0, config.level_count() - 1)
+	kind = p_kind
+	level = clampi(PlanetKind.size_level(kind, p_level), 0, config.level_count() - 1)
 	radius = config.get_planet_radius(level)
-	base_color = config.get_planet_color(level)
+	base_color = PlanetKind.COLORS.get(kind, config.get_planet_color(level))
 	gravity_centers = p_gravity_centers.duplicate()
 
 
@@ -74,6 +77,8 @@ func _ready() -> void:
 	physics_material_override = material
 
 	mass = OrbitPhysics.mass_for_radius(radius, config.mass_reference_radius)
+	if kind == PlanetKind.Kind.ANCHOR:
+		mass *= config.anchor_mass_multiplier
 	gravity_scale = 0.0  # We apply our own gravity toward the core.
 	linear_damp_mode = RigidBody2D.DAMP_MODE_REPLACE
 	linear_damp = config.planet_linear_damp
@@ -89,7 +94,8 @@ func _ready() -> void:
 	# Body: one shader quad (shared material -> batched). Rings and the danger
 	# ring live on a child overlay that uses the default material.
 	_visual.material = PlanetArt.material()
-	_visual.draw.connect(func(): PlanetArt.draw_body(_visual, radius, base_color))
+	if kind != PlanetKind.Kind.BLACK_HOLE:  # A black hole is drawn entirely by its overlay.
+		_visual.draw.connect(func(): PlanetArt.draw_body(_visual, radius, base_color))
 	_overlay.draw.connect(_draw_overlay)
 	_visual.queue_redraw()
 	_overlay.queue_redraw()
@@ -186,13 +192,19 @@ func _process(_delta: float) -> void:
 	if danger > 0.0 or _was_in_danger:
 		_was_in_danger = danger > 0.0
 		_overlay.queue_redraw()  # Only the thin overlay, never the body.
+	elif PlanetArt.kind_animates(kind):
+		_overlay.queue_redraw()
 
 
 # --- Drawing ------------------------------------------------------------------
 
 func _draw_overlay() -> void:
-	PlanetArt.draw_ring(_overlay, radius, base_color, level)
-	if show_number:
+	if kind != PlanetKind.Kind.NORMAL:
+		PlanetArt.draw_kind_overlay(_overlay, kind, radius, Time.get_ticks_msec() / 1000.0,
+			linear_velocity if is_active else Vector2.ZERO)
+	if kind == PlanetKind.Kind.NORMAL or kind == PlanetKind.Kind.ANCHOR:
+		PlanetArt.draw_ring(_overlay, radius, base_color, level)
+	if show_number and (kind == PlanetKind.Kind.NORMAL or kind == PlanetKind.Kind.ANCHOR):
 		PlanetArt.draw_number(_overlay, radius, level)
 	if danger > 0.0:
 		# Pulsing warning ring: this planet is about to end the game.

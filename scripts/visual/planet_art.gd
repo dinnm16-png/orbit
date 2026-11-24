@@ -55,5 +55,46 @@ static func draw_number(ci: CanvasItem, radius: float, level: int) -> void:
 		Color(0.03, 0.035, 0.07, 0.8))
 
 
+## Animated extras for special planets. `t` = time in seconds, `motion` =
+## current velocity (the comet's tail points away from it).
+static func draw_kind_overlay(ci: CanvasItem, kind: int, radius: float, t: float, motion: Vector2 = Vector2.ZERO) -> void:
+	var K := PlanetKind.Kind
+	match kind:
+		K.WILDCARD:
+			# Prismatic ring: six palette colors slowly rotating.
+			var cols := ["#917AFF", "#52E5D5", "#FF8FC8", "#FFD27A", "#5EE6A8", "#7A9BFF"]
+			for i in 6:
+				var a0 := t * 0.8 + TAU * i / 6.0
+				ci.draw_arc(Vector2.ZERO, radius * 1.3, a0, a0 + TAU / 6.0 * 0.75, 12, Color(cols[i]), 2.5, true)
+			var s := 0.5 + 0.5 * sin(t * 3.0)
+			ci.draw_circle(Vector2(-radius * 0.35, -radius * 0.4), 2.0 + s * 1.5, Color(1, 1, 1, 0.6 + 0.4 * s), true, -1.0, true)
+		K.COMET:
+			ci.draw_arc(Vector2.ZERO, radius * 1.25, 0, TAU, 32, Color("#BFE9FF", 0.25), 1.0, true)
+			if motion.length() > 30.0:
+				var back := -motion.normalized()
+				var side := back.orthogonal() * radius * 0.85
+				var tip := back * radius * (2.0 + minf(motion.length() / 300.0, 3.0))
+				ci.draw_polygon(PackedVector2Array([side, tip, -side]),
+					PackedColorArray([Color("#BFE9FF", 0.55), Color("#BFE9FF", 0.0), Color("#BFE9FF", 0.55)]))
+		K.BLACK_HOLE:
+			# Lensing glow, accretion arcs, then the dark event horizon on top.
+			ci.draw_circle(Vector2.ZERO, radius * 1.7, Color("#917AFF", 0.08), true, -1.0, true)
+			var arcs := [["#FFB36B", 1.45, 1.0], ["#917AFF", 1.3, -1.4], ["#52E5D5", 1.18, 1.9]]
+			for arc in arcs:
+				var a0: float = t * arc[2]
+				ci.draw_arc(Vector2.ZERO, radius * arc[1], a0, a0 + PI * 1.2, 24, Color(arc[0], 0.75), 2.0, true)
+			ci.draw_circle(Vector2.ZERO, radius, Color("#05060B"), true, -1.0, true)
+			ci.draw_arc(Vector2.ZERO, radius, 0, TAU, 40, Color(1, 1, 1, 0.55), 1.5, true)
+		K.ANCHOR:
+			ci.draw_arc(Vector2.ZERO, radius - 2.0, 0, TAU, 48, Color(1, 1, 1, 0.85), 3.5, true)
+			for i in 4:
+				ci.draw_circle(Vector2.from_angle(PI / 4 + i * PI / 2) * radius * 0.68, 2.6, Color(1, 1, 1, 0.85), true, -1.0, true)
+
+
+## True if the overlay of this kind animates (needs a redraw every frame).
+static func kind_animates(kind: int) -> bool:
+	return kind == PlanetKind.Kind.WILDCARD or kind == PlanetKind.Kind.BLACK_HOLE or kind == PlanetKind.Kind.COMET
+
+
 static func has_ring(level: int) -> bool:
 	return (level >= 3 and level % 3 == 0) or level >= 9

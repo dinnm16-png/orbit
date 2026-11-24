@@ -57,7 +57,7 @@ const MAX_LEVELS := 12
 @export var planet_colors: PackedColorArray = PackedColorArray([
 	Color("#917AFF"), Color("#52E5D5"), Color("#FF8FC8"), Color("#7A9BFF"),
 	Color("#FFD27A"), Color("#5EE6A8"), Color("#C59BFF"), Color("#52B8E5"),
-	Color("#FF9F7A"), Color("#E8E4FF"), Color("#FFE9A8"), Color("#F5F5FA"),
+	Color("#FF9F7A"), Color("#D77BFF"), Color("#FFE9A8"), Color("#F5F5FA"),
 ])
 ## Launches pick a random level from 0 to this value (inclusive).
 @export var spawn_max_level: int = 2
@@ -68,6 +68,12 @@ const MAX_LEVELS := 12
 @export var game_over_speed_threshold: float = 60.0
 ## Seconds a planet may stay in danger before the game ends.
 @export var game_over_grace_time: float = 2.0
+
+@export_group("Feedback")
+@export var sound_enabled: bool = true
+@export var sound_volume_db: float = -8.0
+## Short vibrations on phones (launch, merge, game over).
+@export var haptics_enabled: bool = true
 
 @export_group("Merging")
 ## Fraction of the pair's momentum the merged planet keeps (0..1).

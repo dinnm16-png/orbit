@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scenes/main/main.gd" id="1_main"]
 [ext_resource type="PackedScene" path="res://scenes/core/gravity_core.tscn" id="2_core"]
@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://scenes/field/planet_field.gd" id="4_field"]
 [ext_resource type="Script" path="res://scenes/ui/next_preview.gd" id="5_next"]
 [ext_resource type="Script" path="res://scenes/ui/game_over_panel.gd" id="6_gameover"]
+[ext_resource type="Script" path="res://scenes/feedback/feedback.gd" id="7_feedback"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -15,6 +16,11 @@ position = Vector2(360, 640)
 
 [node name="PlanetField" type="Node2D" parent="."]
 script = ExtResource("4_field")
+
+[node name="Effects" type="Node2D" parent="."]
+
+[node name="Feedback" type="Node" parent="."]
+script = ExtResource("7_feedback")
 
 [node name="Launcher" parent="." instance=ExtResource("3_launcher")]
 position = Vector2(360, 1100)

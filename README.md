@@ -4,7 +4,7 @@ A premium minimalist 2D physics merge puzzle (Godot 4, GDScript). See
 [PROJECT_SPEC.md](PROJECT_SPEC.md), [ROADMAP.md](ROADMAP.md) and
 [DEVELOPMENT_LOG.md](DEVELOPMENT_LOG.md).
 
-![Gameplay](docs/orbit_phase2.png)
+![Gameplay](docs/orbit_shader_planets.png)
 
 ## Run it
 1. Install **Godot 4.5.x (standard, not .NET)** from https://godotengine.org/download

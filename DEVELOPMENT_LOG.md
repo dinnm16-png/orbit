@@ -4,6 +4,53 @@ Newest entries first. Every "passed" below refers to a test run that was actuall
 
 ---
 
+## 2026-11-24 — Performance pass + Phase 4: Feel & polish
+
+### Performance (measured, same benchmark before/after: ~60 planets spawned)
+| | Before | After |
+|---|---|---|
+| Draw calls / frame | 958 | 77 |
+| Frame time (CPU software rendering in container) | ~36 ms | ~9 ms |
+| Resting planets asleep | 0 of 26 | 32 of 32 |
+| Physics time / frame | ~1.0 ms | ~0.65 ms |
+
+Changes:
+- **Shader planets.** Each planet was ~35 draw calls (stacked translucent
+  circles). Now one quad + `planet.gdshader` (sphere lighting, rim, glow per
+  pixel). All planets share one ShaderMaterial and pass color as vertex color,
+  so Godot batches them. Also removes the visible shading bands.
+- **Sleeping bodies.** `state.apply_central_force` every step woke every body.
+  Gravity is now `constant_force`, re-set only if it changes by >1%. Resting
+  planets sleep; the speed cap only writes velocity when exceeded.
+- **Core** split into cached layers; breathing glow animates `modulate` only.
+- **Physics interpolation** enabled (smooth on 90/120 Hz screens);
+  teleports call `reset_physics_interpolation()`.
+
+### Issues found & fixed
+- Shader used the reserved name `LIGHT` → compile error, **but tests still
+  passed**. Added `tests/error_counter.gd` (Godot 4.5 `Logger`): any engine error
+  now fails the running test. Verified: the broken shader makes a test fail.
+- NEXT preview showed a faint square (glow-less quad corners) → always draw the
+  full glow quad.
+- Sound generation took 95 ms on the desktop CPU; done lazily it would freeze
+  the first merge on phones → generated on a WorkerThreadPool thread at startup,
+  shared across restarts.
+
+### Phase 4 features
+- Merge burst (ring + sparks), popups offset above the planet.
+- `Feedback` node: sound + haptics behind a tiny API (launch/merge/vanish/game over).
+- `ToneSynth`: procedural bells (C-major pentatonic by level), whoosh, chords.
+- Level 10 color changed (pearl → orchid) so the three top levels are distinct.
+
+### Verification (executed)
+- `godot --headless -s res://tests/run_tests.gd` → **67 passed, 0 failed**, with
+  engine-error detection active.
+- Rendered runs: shader planets, merge burst, no shader/script errors.
+- **Not verified:** how the sounds actually sound (no audio device here), haptics
+  (needs a phone), real-device FPS.
+
+---
+
 ## 2026-11-24 — Phase 3: Game loop
 
 ### Built

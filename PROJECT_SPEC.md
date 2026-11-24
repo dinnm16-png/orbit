@@ -3,7 +3,7 @@
 > **Simple to play. Infinite to master.**
 > A premium, minimalist 2D physics merge puzzle for iOS and Android.
 
-Status: **Phase 3 (game loop) complete** · Engine: **Godot 4.5.1 stable** · Language: **GDScript**
+Status: **Phase 4 (feel, polish & performance) complete** · Engine: **Godot 4.5.1 stable** · Language: **GDScript**
 
 ---
 
@@ -35,8 +35,8 @@ clutter, timers or manipulative mechanics.
 
 - **Engine:** Godot's built-in 2D physics (`RigidBody2D`), 60 physics ticks/s.
   Project default gravity is **0** — the only gravity is ours, toward the core.
-- **Gravity applied as a force** in `Planet._integrate_forces()` using
-  `OrbitPhysics.gravity_acceleration()`. A force is integrated *before* contacts
+- **Gravity applied as a constant force** (`Planet._update_gravity_force()`),
+  re-set only when it changes by more than 1% so resting planets can sleep. A force is integrated *before* contacts
   are solved, so resting planets reach exactly zero velocity (no jitter).
   *(Verified: applying it as a direct velocity change left resting planets
   vibrating at ~17 px/s — see DEVELOPMENT_LOG.)*
@@ -100,6 +100,13 @@ Premium futuristic minimalism. Procedural graphics only (no image assets yet).
 | White | `#F5F5FA` | Highlights, text |
 
 Subtle glow, elegant orbital rings, smooth motion, no clutter, no cartoon look.
+
+Rendering: planets are drawn by `resources/shaders/planet.gdshader` (one quad
+per planet, shared material → batched). Merges show a short ring + spark burst.
+
+Feedback: soft procedural sounds (merge notes follow the C-major pentatonic
+scale by level, so chains rise musically) and short haptics on phones. Both
+can be switched off in `GameConfig` (settings screen planned).
 
 ## 7. Technical architecture
 

@@ -41,3 +41,15 @@ func test_adjacent_levels_have_distinct_colors() -> void:
 		var b := config.get_planet_color(i)
 		var diff := Vector3(a.r - b.r, a.g - b.g, a.b - b.b).length()
 		assert_true(diff > 0.25, "levels %d and %d look too similar (%.2f)" % [i - 1, i, diff])
+
+
+func test_top_levels_are_distinct_from_each_other() -> void:
+	# The three biggest planets are the most valuable: they must never be confused.
+	var config: GameConfig = load(DEFAULT_CONFIG)
+	var n := config.level_count()
+	for i in range(n - 3, n):
+		for j in range(i + 1, n):
+			var a := config.get_planet_color(i)
+			var b := config.get_planet_color(j)
+			var diff := Vector3(a.r - b.r, a.g - b.g, a.b - b.b).length()
+			assert_true(diff > 0.25, "levels %d and %d too similar (%.2f)" % [i, j, diff])

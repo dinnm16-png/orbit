@@ -10,6 +10,7 @@ enum State { PLAYING, GAME_OVER }
 
 const COLOR_AQUA := Color("#52E5D5")
 const COLOR_WHITE := Color("#F5F5FA")
+const BURST_SCRIPT := preload("res://scenes/effects/merge_burst.gd")
 
 @export var config: GameConfig = preload("res://resources/config/default_config.tres")
 ## Fixed seed for reproducible runs (tests). 0 = random every run.
@@ -37,6 +38,8 @@ var _store: HighScoreStore
 @onready var next_label: Label = $HUD/NextLabel
 @onready var game_over_panel: GameOverPanel = $HUD/GameOver
 @onready var reload_timer: Timer = $ReloadTimer
+@onready var effects: Node2D = $Effects
+@onready var feedback: Feedback = $Feedback
 
 
 func _enter_tree() -> void:
@@ -47,6 +50,7 @@ func _enter_tree() -> void:
 	$Launcher.setup(config)
 	$PlanetField.setup(config)
 	$NextPreview.setup(config)
+	$Feedback.setup(config)
 
 
 func _ready() -> void:
@@ -110,7 +114,8 @@ func _load_next_planet() -> void:
 	next_preview.show_level(next_level)
 
 
-func _on_planet_launched(_planet: Planet) -> void:
+func _on_planet_launched(planet: Planet) -> void:
+	feedback.on_launch(planet.linear_velocity.length() / config.max_launch_speed)
 	if hint.visible:
 		create_tween().tween_property(hint, "modulate:a", 0.0, 0.6)
 	reload_timer.start()
@@ -121,19 +126,32 @@ func _on_planet_launched(_planet: Planet) -> void:
 func _on_planets_merged(planet: Planet, chain_depth: int) -> void:
 	var points := ScoreRules.merge_points(
 		planet.level, chain_depth, config.merge_base_points, config.chain_bonus)
-	_add_score(points, planet.global_position, chain_depth)
+	if _add_score(points, planet.global_position - Vector2(0, planet.radius + 14.0), chain_depth):
+		_spawn_burst(planet.global_position, planet.base_color, planet.radius, 1.0)
+		feedback.on_merge(planet.level, chain_depth)
 
 
-func _on_planets_vanished(at: Vector2, _level: int, chain_depth: int) -> void:
+func _on_planets_vanished(at: Vector2, level: int, chain_depth: int) -> void:
 	var points := ScoreRules.vanish_points(config.vanish_points, chain_depth, config.chain_bonus)
-	_add_score(points, at, chain_depth)
+	if _add_score(points, at, chain_depth):
+		_spawn_burst(at, COLOR_WHITE, config.get_planet_radius(level), 2.0)
+		feedback.on_vanish()
 
 
-func _add_score(points: int, at: Vector2, chain_depth: int) -> void:
+## Returns false when scoring is closed (game over).
+func _add_score(points: int, at: Vector2, chain_depth: int) -> bool:
 	if state != State.PLAYING:
-		return
+		return false
 	_set_score(score + points)
 	_show_popup(points, at, chain_depth)
+	return true
+
+
+func _spawn_burst(at: Vector2, color: Color, radius: float, strength: float) -> void:
+	var burst: MergeBurst = BURST_SCRIPT.new()
+	burst.setup(color, radius, strength)
+	burst.position = at
+	effects.add_child(burst)
 
 
 func _set_score(value: int) -> void:
@@ -194,6 +212,7 @@ func _game_over() -> void:
 	var is_new_best := score > best_score and _store.submit(score)
 	best_score = maxi(best_score, score)
 	game_over_panel.present(score, best_score, is_new_best)
+	feedback.on_game_over()
 
 
 ## Restarts instantly by reloading the scene: the simplest way to guarantee a

@@ -31,14 +31,23 @@ Major architectural changes are proposed for approval before implementation.
 - [x] Local best score (offline, `user://`)
 - [x] Tests for game-over timing and edge cases (57 tests total)
 
-## Phase 4 — Feel & polish
-- [ ] Smooth shader-based planet rendering (removes visible shading bands, most visible on big planets)
-- [ ] Make top levels (10–12: pearl / gold / white) more distinct; consider a symbol per level for color-blind players
-- [ ] Merge animation, subtle particles, screen-space glow
-- [ ] Trajectory preview using `OrbitPhysics` (design decision: difficulty impact)
-- [ ] Launcher position/angle design review after playtests
-- [ ] Haptics on mobile, minimal sound design
-- [ ] Physics interpolation for high-refresh-rate displays
+## ✅ Phase 4 — Feel, polish & performance (done)
+- [x] Shader-based planets: smooth shading, one batched quad per planet (958 → 77 draw calls)
+- [x] Resting planets sleep (gravity as a constant force updated only on change)
+- [x] Core drawn once; pulse via opacity only
+- [x] Physics interpolation for 90/120 Hz displays
+- [x] Top levels (10–12) clearly distinct (+ test)
+- [x] Merge burst effect (ring + sparks); score popups placed above the planet
+- [x] Haptics on phones (short, subtle; configurable)
+- [x] Procedural sound (pentatonic merge bells, launch whoosh, vanish & game-over chords), generated on a background thread
+- [x] Test runner fails on any engine error (shader/script)
+- ~~Trajectory preview~~ (designer decision: aim line only)
+
+## Phase 4b — Needs playtesting on a real device
+- [ ] Launcher position/angle design review
+- [ ] Listen to and tune the sounds (they were never heard during development — cloud machine has no audio)
+- [ ] Feel of haptic strengths
+- [ ] Chain popups can overlap when many merges happen at once
 - [ ] Difficulty/pacing tuning from real playtests (bot game: ~260 launches, ~2.5 min)
 - [ ] In-game pause / restart button (only `R` and game-over restart today)
 - [ ] Performance pass on low-end Android (target 60 FPS with ~40 planets)
@@ -46,7 +55,8 @@ Major architectural changes are proposed for approval before implementation.
 ## Phase 5 — Mobile release prep
 - [ ] Export presets (Android, iOS), icons, splash
 - [ ] Safe-area handling (notches), pause on app background
-- [ ] Settings (sound, haptics), accessibility (color-blind-friendly levels)
+- [ ] Settings screen (sound, haptics), accessibility: a symbol per level for color-blind players
+- [ ] Android export: add the VIBRATE permission (needed for haptics)
 - [ ] Device testing matrix
 
 ## Later (not started, needs explicit approval)

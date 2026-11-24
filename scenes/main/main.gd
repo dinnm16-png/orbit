@@ -59,6 +59,8 @@ var shots_fired: int = 0
 ## Daily Orbit: today's key, e.g. "2026-11-24".
 var date_key: String = ""
 
+var _fade: ColorRect
+var _leaving: bool = false
 var _monitor: BoundaryMonitor
 var _store: HighScoreStore
 var _since_last_shot: float = 0.0
@@ -152,6 +154,12 @@ func _ready() -> void:
 	next_level = _roll_level()
 	_load_next_planet()
 	_update_status()
+
+	# Soft fade-in from the menu (top of the HUD, ignores input).
+	_fade = UIStyle.fade_rect(1.0)
+	_fade.process_mode = Node.PROCESS_MODE_ALWAYS
+	$HUD.add_child(_fade)
+	create_tween().tween_property(_fade, "color:a", 0.0, 0.4)
 
 
 ## Places everything relative to the visible area. With "expand" stretch
@@ -404,9 +412,16 @@ func restart() -> void:
 
 
 func go_to_menu() -> void:
+	if _leaving:
+		return
 	get_tree().paused = false
-	if get_tree().current_scene == self and ResourceLoader.exists(MENU_SCENE):
-		get_tree().change_scene_to_file(MENU_SCENE)
+	if get_tree().current_scene != self or not ResourceLoader.exists(MENU_SCENE):
+		return
+	_leaving = true
+	$HUD.move_child(_fade, -1)
+	var t := create_tween()
+	t.tween_property(_fade, "color:a", 1.0, 0.25)
+	t.tween_callback(func(): get_tree().change_scene_to_file(MENU_SCENE))
 
 
 # --- Pause & settings ------------------------------------------------------------

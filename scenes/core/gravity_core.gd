@@ -5,12 +5,11 @@ extends StaticBody2D
 ## It is a StaticBody2D: it never moves, but planets collide with it and come
 ## to rest on it. The pull itself is applied by each Planet (see Planet and
 ## OrbitPhysics); the core only defines *where* the center is.
-## It also draws the playable boundary ring (the game-over line).
+## (The boundary ring is drawn by ArenaRing.)
 ##
 ## Performance: each visual part is its own child CanvasItem whose drawing is
 ## cached by Godot. Animation only changes cheap properties (rotation,
-## modulate); nothing is re-drawn every frame, except the warning ring while
-## the game is actually in danger.
+## modulate); nothing is re-drawn every frame.
 
 const COLOR_VIOLET := Color("#917AFF")
 const COLOR_AQUA := Color("#52E5D5")
@@ -18,18 +17,13 @@ const COLOR_WHITE := Color("#F5F5FA")
 const COLOR_SECONDARY := Color("#171B30")
 
 var config: GameConfig
-## 0..1: how close the game is to ending. Brightens and pulses the boundary.
-var danger: float = 0.0
 
 var _time: float = 0.0
-var _warning_visible: bool = false
 
 @onready var _collision: CollisionShape2D = $CollisionShape2D
-@onready var _boundary: Node2D = $Boundary
 @onready var _glow: Node2D = $Glow
 @onready var _body: Node2D = $Body
 @onready var _rings: Node2D = $Rings
-@onready var _warning: Node2D = $Warning
 
 
 func setup(p_config: GameConfig) -> void:
@@ -47,11 +41,9 @@ func _ready() -> void:
 	material.bounce = 0.0
 	physics_material_override = material
 
-	_boundary.draw.connect(_draw_boundary)
 	_glow.draw.connect(_draw_glow)
 	_body.draw.connect(_draw_body)
 	_rings.draw.connect(_draw_rings)
-	_warning.draw.connect(_draw_warning)
 
 
 func _process(delta: float) -> void:
@@ -60,15 +52,6 @@ func _process(delta: float) -> void:
 	_rings.rotation = _time * 0.12
 	# Gentle "breathing" glow: only the layer's opacity changes, no redraw.
 	_glow.modulate.a = 0.8 + 0.2 * sin(_time * 1.6)
-	if danger > 0.0 or _warning_visible:
-		_warning_visible = danger > 0.0
-		_warning.queue_redraw()
-
-
-func _draw_boundary() -> void:
-	var b := config.boundary_radius
-	_boundary.draw_circle(Vector2.ZERO, b, Color(COLOR_SECONDARY, 0.35), true, -1.0, true)
-	_boundary.draw_arc(Vector2.ZERO, b, 0.0, TAU, 128, Color(COLOR_VIOLET, 0.22), 1.5, true)
 
 
 func _draw_glow() -> void:
@@ -95,14 +78,3 @@ func _draw_rings() -> void:
 	_rings.draw_arc(Vector2.ZERO, r * 1.85, PI, PI + TAU - 1.1, 96, Color(COLOR_VIOLET, 0.28), 1.0, true)
 	_rings.draw_circle(Vector2(r * 1.45, 0).rotated(-0.2), 3.0, COLOR_AQUA, true, -1.0, true)
 	_rings.draw_circle(Vector2(r * 1.85, 0).rotated(PI - 0.55), 2.2, COLOR_VIOLET, true, -1.0, true)
-
-
-func _draw_warning() -> void:
-	if danger <= 0.0:
-		return
-	# The ring pulses toward white, faster as time runs out, and never fully
-	# fades: even at the pulse's low point the warning stays visible.
-	var warn := 0.5 + 0.5 * sin(_time * (8.0 + 10.0 * danger))
-	var ring := COLOR_VIOLET.lerp(COLOR_WHITE, danger)
-	_warning.draw_arc(Vector2.ZERO, config.boundary_radius, 0.0, TAU, 128,
-		Color(ring, 0.35 + danger * (0.3 + 0.35 * warn)), 3.0, true)

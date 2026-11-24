@@ -17,12 +17,15 @@ const PLANET_SCENE := preload("res://scenes/planet/planet.tscn")
 var config: GameConfig
 ## Seconds of physics time since the field started (used for chain timing).
 var time: float = 0.0
-var gravity_center: Vector2 = Vector2.ZERO:
+## One entry per core. Setting it updates every planet.
+var gravity_centers: Array = [Vector2.ZERO]:
 	set(value):
-		gravity_center = value
+		gravity_centers = value.duplicate()
 		for planet in get_planets():
-			planet.gravity_center = value
-			planet.sleeping = false  # Sleeping planets must feel the new center.
+			planet.gravity_centers = gravity_centers.duplicate()
+			planet.sleeping = false  # Sleeping planets must feel the new centers.
+## Center of the arena (escape distance is measured from here).
+var arena_center: Vector2 = Vector2.ZERO
 
 
 ## Accessibility setting, applied to existing and future planets.
@@ -40,7 +43,7 @@ func setup(p_config: GameConfig) -> void:
 ## Creates a planet. Inactive planets wait frozen (e.g. at the launcher).
 func spawn_planet(level: int, at: Vector2, active: bool = false, velocity: Vector2 = Vector2.ZERO) -> Planet:
 	var planet: Planet = PLANET_SCENE.instantiate()
-	planet.setup(config, level, gravity_center)
+	planet.setup(config, level, gravity_centers)
 	planet.position = at
 	planet.born_time = time
 	planet.show_number = show_numbers
@@ -138,5 +141,5 @@ func _wake_neighbours(planet: Planet) -> void:
 func _despawn_escaped() -> void:
 	var limit_sq := config.despawn_distance * config.despawn_distance
 	for planet in get_active_planets():
-		if planet.global_position.distance_squared_to(gravity_center) > limit_sq:
+		if planet.global_position.distance_squared_to(arena_center) > limit_sq:
 			planet.consume()

@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://scenes/main/main.gd" id="1_main"]
 [ext_resource type="PackedScene" path="res://scenes/core/gravity_core.tscn" id="2_core"]
@@ -9,9 +9,14 @@
 [ext_resource type="Script" path="res://scenes/feedback/feedback.gd" id="7_feedback"]
 [ext_resource type="Script" path="res://scenes/ui/pause_button.gd" id="8_pausebtn"]
 [ext_resource type="Script" path="res://scenes/ui/pause_menu.gd" id="9_pausemenu"]
+[ext_resource type="Script" path="res://scenes/arena/arena_ring.gd" id="10_arena"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
+
+[node name="Arena" type="Node2D" parent="."]
+position = Vector2(360, 640)
+script = ExtResource("10_arena")
 
 [node name="GravityCore" parent="." instance=ExtResource("2_core")]
 position = Vector2(360, 640)
@@ -51,6 +56,14 @@ offset_right = 720.0
 offset_bottom = 180.0
 theme_override_colors/font_color = Color(0.960784, 0.960784, 0.980392, 0.4)
 theme_override_font_sizes/font_size = 18
+horizontal_alignment = 1
+
+[node name="Status" type="Label" parent="HUD"]
+offset_top = 182.0
+offset_right = 720.0
+offset_bottom = 212.0
+theme_override_colors/font_color = Color(0.960784, 0.960784, 0.980392, 0.7)
+theme_override_font_sizes/font_size = 22
 horizontal_alignment = 1
 
 [node name="NextLabel" type="Label" parent="HUD"]

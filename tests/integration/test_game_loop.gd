@@ -45,7 +45,7 @@ func test_planet_resting_outside_boundary_ends_game_after_grace() -> void:
 	var p: Planet = main.field.spawn_planet(0, main.core.global_position + Vector2(0, -400), true)
 	await wait_physics_frames(60)  # 1 s
 	assert_eq(main.state, main.State.PLAYING, "still playing during grace")
-	assert_true(p.danger > 0.3 and main.core.danger > 0.3, "warning shown during grace")
+	assert_true(p.danger > 0.3 and main.arena.danger > 0.3, "warning shown during grace")
 	await wait_physics_frames(75)  # total 2.25 s
 	assert_eq(main.state, main.State.GAME_OVER, "game over after grace")
 	assert_true(main.game_over_panel.visible, "overlay shown")

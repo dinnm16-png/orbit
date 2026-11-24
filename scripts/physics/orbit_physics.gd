@@ -18,6 +18,15 @@ static func gravity_acceleration(position: Vector2, center: Vector2, strength: f
 	return to_center / distance * strength
 
 
+## Sum of the pulls of several cores (Binary Star). Each core pulls with
+## `strength`; with one core this equals gravity_acceleration().
+static func gravity_acceleration_multi(position: Vector2, centers: Array, strength: float) -> Vector2:
+	var total := Vector2.ZERO
+	for c in centers:
+		total += gravity_acceleration(position, c, strength)
+	return total
+
+
 ## Caps a velocity to `max_speed` while keeping its direction.
 static func clamp_velocity(velocity: Vector2, max_speed: float) -> Vector2:
 	return velocity.limit_length(max_speed)

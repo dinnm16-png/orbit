@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="GameMode" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/modes/game_mode.gd" id="1_mode"]
+
+[resource]
+script = ExtResource("1_mode")
+id = "daily"
+title = "Daily Orbit"
+tagline = "Same planets for everyone today"
+description = "Everyone gets the same sequence of planets today. One day, one best score. Compare with friends."
+accent = Color(1, 0.823529, 0.478431, 1)
+daily_seed = true
+difficulty_applies = false

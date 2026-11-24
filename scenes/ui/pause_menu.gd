@@ -5,6 +5,7 @@ extends Control
 
 signal resume_requested
 signal restart_requested
+signal menu_requested
 signal settings_changed
 
 const COLOR_BG := Color("#080910")
@@ -47,6 +48,7 @@ func _ready() -> void:
 
 	box.add_child(_make_button("RESUME", true, func(): resume_requested.emit()))
 	box.add_child(_make_button("RESTART", false, func(): restart_requested.emit()))
+	box.add_child(_make_button("MENU", false, func(): menu_requested.emit()))
 
 	var spacer := Control.new()
 	spacer.custom_minimum_size = Vector2(0, 24)

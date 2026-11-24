@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="GameMode" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/modes/game_mode.gd" id="1_mode"]
+
+[resource]
+script = ExtResource("1_mode")
+id = "binary"
+title = "Binary Star"
+tagline = "Two cores. Twisted gravity."
+description = "Two gravitational cores pull every planet. Shots curve in new ways, and planets bridge the gap between the stars."
+accent = Color(0.478431, 0.607843, 1, 1)
+core_count = 2
+core_spacing = 170.0
+gravity_scale = 0.75
+boundary_radius_override = 330.0

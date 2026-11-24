@@ -16,8 +16,8 @@ var level: int = 0
 var radius: float = 20.0
 var base_color: Color = Color.WHITE
 var config: GameConfig
-## Where gravity pulls toward (the core's global position).
-var gravity_center: Vector2 = Vector2.ZERO
+## Where gravity pulls toward: one position per core (Binary Star has two).
+var gravity_centers: Array = [Vector2.ZERO]
 ## True once launched. Only active planets feel gravity.
 var is_active: bool = false
 ## True once this planet has been used in a merge. A consumed planet is
@@ -48,12 +48,12 @@ var _grow_elapsed: float = INF
 @onready var _overlay: Node2D = $Visual/Overlay
 
 
-func setup(p_config: GameConfig, p_level: int, p_gravity_center: Vector2) -> void:
+func setup(p_config: GameConfig, p_level: int, p_gravity_centers: Array) -> void:
 	config = p_config
 	level = clampi(p_level, 0, config.level_count() - 1)
 	radius = config.get_planet_radius(level)
 	base_color = config.get_planet_color(level)
-	gravity_center = p_gravity_center
+	gravity_centers = p_gravity_centers.duplicate()
 
 
 func _ready() -> void:
@@ -120,14 +120,22 @@ func start_grow(from_radius: float) -> void:
 
 
 ## Removes this planet after a merge. Safe to call twice.
-func consume() -> void:
+## fade = true: shrink and fade out softly instead of disappearing (Zen).
+func consume(fade: bool = false) -> void:
 	if consumed:
 		return
 	consumed = true
 	is_active = false
 	_collision.set_deferred("disabled", true)
-	hide()
-	queue_free()
+	if not fade:
+		hide()
+		queue_free()
+		return
+	set_deferred("freeze", true)
+	var tween := create_tween().set_parallel(true)
+	tween.tween_property(self, "modulate:a", 0.0, 0.6)
+	tween.tween_property(_visual, "scale", Vector2.ONE * 0.6, 0.6)
+	tween.chain().tween_callback(queue_free)
 
 
 func _physics_process(delta: float) -> void:
@@ -154,7 +162,7 @@ func _apply_grow(t: float) -> void:
 ##   Phase 1 approach) therefore kept every planet awake forever. A resting
 ##   planet's gravity never changes, so now it can fall asleep and cost nothing.
 func _update_gravity_force() -> void:
-	var accel := OrbitPhysics.gravity_acceleration(global_position, gravity_center, config.gravity_strength)
+	var accel := OrbitPhysics.gravity_acceleration_multi(global_position, gravity_centers, config.gravity_strength)
 	var desired := accel * mass
 	var tolerance := desired.length() * 0.01
 	if desired.distance_squared_to(constant_force) > tolerance * tolerance:

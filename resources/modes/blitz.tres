@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="GameMode" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/modes/game_mode.gd" id="1_mode"]
+
+[resource]
+script = ExtResource("1_mode")
+id = "blitz"
+title = "Blitz"
+tagline = "90 seconds. Chains buy time."
+description = "Score as much as you can in 90 seconds. Every chain reaction adds bonus time."
+accent = Color(1, 0.560784, 0.784314, 1)
+time_limit = 90.0
+time_bonus_per_chain = 0.5

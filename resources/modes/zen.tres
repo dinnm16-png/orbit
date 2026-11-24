@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="GameMode" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/modes/game_mode.gd" id="1_mode"]
+
+[resource]
+script = ExtResource("1_mode")
+id = "zen"
+title = "Zen"
+tagline = "No pressure. Just orbits."
+description = "No game over. Planets that drift outside the ring softly fade away. Play, experiment, relax."
+accent = Color(0.368627, 0.901961, 0.658824, 1)
+game_over_on_boundary = false
+fade_outside_boundary = true

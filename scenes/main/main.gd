@@ -65,6 +65,10 @@ var shots_fired: int = 0
 ## Daily Orbit: today's key, e.g. "2026-11-24".
 var date_key: String = ""
 
+## Long-term stats, collection and milestones.
+var progress: Progress
+var _play_time: float = 0.0
+var _progress_committed: bool = false
 var _fade: ColorRect
 var _leaving: bool = false
 var _monitor: BoundaryMonitor
@@ -88,6 +92,7 @@ var _pieces_rolled: int = 0
 @onready var hold_button: Button = $HUD/HoldButton
 @onready var piece_info: Label = $HUD/PieceInfo
 @onready var pulse_button: PulseButton = $HUD/PulseButton
+@onready var toast: Toast = $HUD/Toast
 @onready var game_over_panel: GameOverPanel = $HUD/GameOver
 @onready var pause_button: PauseButton = $HUD/PauseButton
 @onready var pause_menu: PauseMenu = $HUD/PauseMenu
@@ -101,13 +106,16 @@ func _enter_tree() -> void:
 		mode = Session.current_mode()
 	settings = PlayerSettings.new(save_path)
 	settings.load_settings()
-	Themes.apply(settings.theme)
+	progress = Progress.new(save_path).load_progress()
+	# Locked themes (e.g. a save copied from elsewhere) fall back to Nebula.
+	var theme_id := settings.theme if progress.is_theme_unlocked(settings.theme) else "nebula"
+	Themes.apply(theme_id)
 	# Each mode gets its own copy of the config (never edit the shared file),
 	# then difficulty and theme are layered on top.
 	config = mode.apply_to(config)
 	if mode.difficulty_applies:
 		config = Difficulty.apply(config, settings.difficulty)
-	config.planet_colors = Themes.planet_colors(settings.theme)
+	config.planet_colors = Themes.planet_colors(theme_id)
 	var errors := config.validate()
 	assert(errors.is_empty(), "Invalid GameConfig: %s" % ", ".join(errors))
 	# Children's _ready() runs before ours, so configure them here, first.
@@ -235,6 +243,8 @@ func _layout() -> void:
 	status_label.position = Vector2(rect.position.x, rect.position.y + top + 182.0)
 	status_label.size.x = rect.size.x
 	pause_button.position = Vector2(rect.position.x + insets["left"] + 20.0, rect.position.y + top + 20.0)
+	toast.position = Vector2(rect.position.x, rect.position.y + top + 222.0)
+	toast.size.x = rect.size.x
 
 
 func _roll_level() -> int:
@@ -274,6 +284,11 @@ func _load_next_planet() -> void:
 
 func _load_piece(level: int, kind: int) -> void:
 	launcher.load_planet(field.spawn_planet(level, launcher.global_position, false, Vector2.ZERO, kind))
+	# Small starting planets are "seen" silently; specials get a discovery toast.
+	if kind == PlanetKind.Kind.NORMAL:
+		progress.on_planet_seen(level)
+	else:
+		_news(progress.on_special_seen(kind))
 	# Special planets explain themselves the first moment they appear.
 	if kind != PlanetKind.Kind.NORMAL:
 		piece_info.text = "%s  ·  %s" % [PlanetKind.NAMES[kind].to_upper(), PlanetKind.HINTS[kind]]
@@ -317,6 +332,7 @@ func pulse() -> void:
 			planet.apply_central_impulse(dir.normalized() * planet.mass * config.pulse_impulse)
 	pulse_charge = 0
 	pulse_button.charge = 0.0
+	_news(progress.on_pulse())
 	var wave: PulseWave = PULSE_WAVE.new()
 	wave.from_radius = arena_radius
 	wave.position = arena_center
@@ -349,6 +365,7 @@ func _on_planets_merged(planet: Planet, chain_depth: int) -> void:
 		_spawn_burst(planet.global_position, planet.base_color, planet.radius, 1.0)
 		feedback.on_merge(planet.level, chain_depth)
 		_apply_merge_mode_rules(planet, chain_depth)
+		_news(progress.on_merge(planet.level, chain_depth))
 		if mode.pulse_enabled:
 			pulse_charge = mini(pulse_charge + 1, config.pulse_merges_needed)
 			pulse_button.charge = float(pulse_charge) / config.pulse_merges_needed
@@ -446,11 +463,31 @@ func _update_status() -> void:
 	status_label.add_theme_color_override("font_color", UIStyle.AQUA if urgent else Color(UIStyle.WHITE, 0.7))
 
 
+## Show discoveries/milestones quietly and save them right away.
+func _news(items: Array) -> void:
+	if items.is_empty():
+		return
+	toast.push(items)
+	progress.save()
+
+
+## Count this game in the stats exactly once (ended, restarted or left).
+func _commit_progress() -> void:
+	if _progress_committed or shots_fired == 0:
+		return
+	_progress_committed = true
+	var news := progress.finish_game(mode.id, score, _play_time)
+	progress.save()
+	if state == State.GAME_OVER:
+		toast.push(news)
+
+
 # --- Mode rules each physics step ---------------------------------------------
 
 func _physics_process(delta: float) -> void:
 	if state != State.PLAYING:
 		return
+	_play_time += delta
 
 	if mode.is_timed():
 		time_left = maxf(time_left - delta, 0.0)
@@ -526,11 +563,13 @@ func _end(reason: EndReason) -> void:
 		mode_title += " · " + DailySeed.pretty(date_key)
 	game_over_panel.present(score, best_score, is_new_best, END_TITLES[reason], mode_title)
 	feedback.on_game_over()
+	_commit_progress()
 
 
 ## Restarts instantly by reloading the scene: the simplest way to guarantee a
 ## completely clean state (no leftover planets, timers or tweens).
 func restart() -> void:
+	_commit_progress()
 	get_tree().paused = false
 	if get_tree().current_scene == self:
 		get_tree().reload_current_scene()
@@ -539,6 +578,7 @@ func restart() -> void:
 func go_to_menu() -> void:
 	if _leaving:
 		return
+	_commit_progress()
 	get_tree().paused = false
 	if get_tree().current_scene != self or not ResourceLoader.exists(MENU_SCENE):
 		return

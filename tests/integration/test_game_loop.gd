@@ -97,3 +97,26 @@ func test_no_scoring_after_game_over() -> void:
 	assert_eq(main.score, frozen_score, "score is final once the game is over")
 	await _cleanup(main)
 	_clear_save()
+
+
+func test_game_counts_in_stats_exactly_once() -> void:
+	_clear_save()
+	var main := await _spawn_main(true)
+	main.launcher.fire(Vector2(0, -600))
+	main.field.spawn_planet(0, main.core.global_position + Vector2(0, -400), true)
+	await wait_physics_frames(140)
+	assert_eq(main.state, main.State.GAME_OVER, "game over")
+	main._commit_progress()  # e.g. Play Again pressed afterwards
+	var p := Progress.new(SAVE).load_progress()
+	assert_eq(p.games_played, 1, "counted once")
+	assert_true(p.modes_played.has("classic"), "mode recorded")
+	await _cleanup(main)
+	_clear_save()
+
+
+func test_untouched_game_is_not_counted() -> void:
+	_clear_save()
+	var main := await _spawn_main()
+	main._commit_progress()
+	assert_eq(Progress.new(SAVE).load_progress().games_played, 0, "no launch, no game")
+	await _cleanup(main)

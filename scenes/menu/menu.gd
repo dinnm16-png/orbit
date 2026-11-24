@@ -7,12 +7,13 @@ extends Control
 ##   Back button: closes the sheet, else returns to the Play tab, else quits.
 
 const GAME_SCENE := "res://scenes/main/main.tscn"
-const TABS := ["play", "settings"]
-const TAB_TITLES := {"play": "PLAY", "settings": "SETTINGS"}
+const TABS := ["play", "collection", "stats", "settings"]
+const TAB_TITLES := {"play": "PLAY", "collection": "PLANETS", "stats": "STATS", "settings": "SETTINGS"}
 
 @export var save_path: String = "user://orbit_save.cfg"
 
 var settings: PlayerSettings
+var progress: Progress
 var current_tab: String = "play"
 
 var _pages: Dictionary = {}
@@ -21,11 +22,16 @@ var _sheet: ModeSheet
 var _fade: ColorRect
 var _leaving: bool = false
 var _insets: Dictionary
+var _hero: VBoxContainer
+var _tagline: Label
 
 
 func _ready() -> void:
 	settings = PlayerSettings.new(save_path)
 	settings.load_settings()
+	progress = Progress.new(save_path).load_progress()
+	if not progress.is_theme_unlocked(settings.theme):
+		settings.theme = "nebula"
 	Themes.apply(settings.theme)
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_insets = SafeArea.current(get_viewport_rect().size)
@@ -49,13 +55,14 @@ func _ready() -> void:
 	add_child(layout)
 
 	# Hero: wordmark over the glowing core of the backdrop.
-	var hero := VBoxContainer.new()
-	hero.custom_minimum_size = Vector2(0, 430)
-	hero.alignment = BoxContainer.ALIGNMENT_CENTER
-	hero.add_theme_constant_override("separation", 10)
-	hero.add_child(UIStyle.label("ORBIT", 78, UIStyle.WHITE, 26, HORIZONTAL_ALIGNMENT_CENTER))
-	hero.add_child(UIStyle.label("Simple to play. Infinite to master.", 20, Color(UIStyle.WHITE, 0.5), 1, HORIZONTAL_ALIGNMENT_CENTER))
-	layout.add_child(hero)
+	_hero = VBoxContainer.new()
+	_hero.custom_minimum_size = Vector2(0, 430)
+	_hero.alignment = BoxContainer.ALIGNMENT_CENTER
+	_hero.add_theme_constant_override("separation", 10)
+	_hero.add_child(UIStyle.label("ORBIT", 78, UIStyle.WHITE, 26, HORIZONTAL_ALIGNMENT_CENTER))
+	_tagline = UIStyle.label("Simple to play. Infinite to master.", 20, Color(UIStyle.WHITE, 0.5), 1, HORIZONTAL_ALIGNMENT_CENTER)
+	_hero.add_child(_tagline)
+	layout.add_child(_hero)
 
 	var pages := MarginContainer.new()
 	pages.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -63,8 +70,16 @@ func _ready() -> void:
 		pages.add_theme_constant_override("margin_" + side, 40)
 	layout.add_child(pages)
 	_pages["play"] = _build_play_page()
+	var collection := CollectionPage.new()
+	collection.setup(progress, Themes.planet_colors(settings.theme))
+	_pages["collection"] = _scroll(collection)
+	var stats := StatsPage.new()
+	stats.setup(progress, save_path, settings.difficulty)
+	_pages["stats"] = _scroll(stats)
 	var settings_page := SettingsPage.new()
 	settings_page.setup(settings)
+	settings_page.is_theme_unlocked = progress.is_theme_unlocked
+	settings_page.unlock_hint = progress.theme_unlock_hint
 	settings_page.changed.connect(_refresh_cards)
 	settings_page.theme_picked.connect(_on_theme_picked)
 	_pages["settings"] = _scroll(settings_page)
@@ -103,6 +118,12 @@ func _build_play_page() -> Control:
 func _scroll(content: Control) -> ScrollContainer:
 	var s := ScrollContainer.new()
 	s.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	# Thin, quiet scrollbar instead of the default grey bar.
+	var bar := s.get_v_scroll_bar()
+	bar.custom_minimum_size.x = 6
+	bar.add_theme_stylebox_override("scroll", StyleBoxEmpty.new())
+	for state in ["grabber", "grabber_highlight", "grabber_pressed"]:
+		bar.add_theme_stylebox_override(state, UIStyle.box(Color(UIStyle.WHITE, 0.14), Color(0, 0, 0, 0), 3))
 	s.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	s.add_child(content)
@@ -119,9 +140,9 @@ func _build_tab_bar() -> Control:
 		b.text = TAB_TITLES[key]
 		b.flat = true
 		b.focus_mode = Control.FOCUS_NONE
-		b.custom_minimum_size = Vector2(180, 88)
+		b.custom_minimum_size = Vector2(160, 88)
 		b.add_theme_font_override("font", UIStyle.spaced_font(4))
-		b.add_theme_font_size_override("font_size", 18)
+		b.add_theme_font_size_override("font_size", 17)
 		for state in ["normal", "hover", "pressed", "focus"]:
 			b.add_theme_stylebox_override(state, StyleBoxEmpty.new())
 		b.pressed.connect(show_tab.bind(key))
@@ -135,7 +156,14 @@ func _build_tab_bar() -> Control:
 
 
 func show_tab(key: String) -> void:
+	var changed := key != current_tab
 	current_tab = key
+	# Content tabs get more room: the hero header collapses smoothly.
+	if _hero:
+		var tall := key == "play"
+		var t := create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		t.tween_property(_hero, "custom_minimum_size:y", 430.0 if tall else 250.0, 0.3 if changed else 0.0)
+		t.tween_property(_tagline, "modulate:a", 1.0 if tall else 0.0, 0.25 if changed else 0.0)
 	for k in _pages:
 		_pages[k].visible = k == key
 	for k in _tab_buttons:

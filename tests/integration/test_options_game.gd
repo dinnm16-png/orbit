@@ -42,7 +42,11 @@ func test_daily_ignores_difficulty() -> void:
 
 
 func test_theme_recolors_planets() -> void:
-	var main := await _spawn("classic", func(s): s.theme = "solar")
+	var main := await _spawn("classic", func(s):
+		var p := Progress.new(SAVE)
+		p.milestones.append("cascade")  # Solar is unlocked by the Cascade milestone.
+		p.save()
+		s.theme = "solar")
 	var p: Planet = main.field.spawn_planet(3, main.arena_center + Vector2(0, -150), true)
 	assert_eq(p.base_color, Themes.planet_colors("solar")[3], "planet uses theme palette")
 	assert_eq(UIStyle.VIOLET, Color(Themes.DATA["solar"]["primary"]), "UI uses theme")
@@ -61,4 +65,10 @@ func test_aim_assist_prediction_matches_real_flight() -> void:
 	await wait_physics_frames(30)
 	var err := planet.global_position.distance_to(predicted[29])
 	assert_true(err < 12.0, "real position within 12 px of the prediction after 0.5 s (off by %.1f)" % err)
+	await _cleanup(main)
+
+
+func test_locked_theme_falls_back_to_nebula() -> void:
+	var main := await _spawn("classic", func(s): s.theme = "solar")
+	assert_eq(Themes.current_id, "nebula", "locked theme is not applied")
 	await _cleanup(main)

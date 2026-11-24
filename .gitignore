@@ -1,0 +1,11 @@
+# Godot 4 generated cache — rebuilt automatically when the project is opened.
+.godot/
+# Exported builds and platform-specific build folders.
+/build/
+/android/
+*.apk
+*.aab
+*.ipa
+# OS junk
+.DS_Store
+Thumbs.db

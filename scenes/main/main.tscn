@@ -1,0 +1,30 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scenes/main/main.gd" id="1_main"]
+[ext_resource type="PackedScene" path="res://scenes/core/gravity_core.tscn" id="2_core"]
+[ext_resource type="PackedScene" path="res://scenes/launcher/launcher.tscn" id="3_launcher"]
+
+[node name="Main" type="Node2D"]
+script = ExtResource("1_main")
+
+[node name="GravityCore" parent="." instance=ExtResource("2_core")]
+position = Vector2(360, 640)
+
+[node name="Planets" type="Node2D" parent="."]
+
+[node name="Launcher" parent="." instance=ExtResource("3_launcher")]
+position = Vector2(360, 1100)
+
+[node name="ReloadTimer" type="Timer" parent="."]
+one_shot = true
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="Hint" type="Label" parent="HUD"]
+offset_top = 1210.0
+offset_right = 720.0
+offset_bottom = 1250.0
+theme_override_colors/font_color = Color(0.960784, 0.960784, 0.980392, 0.45)
+theme_override_font_sizes/font_size = 22
+text = "Pull back and release to launch"
+horizontal_alignment = 1

@@ -1,0 +1,40 @@
+; Engine configuration file.
+; Godot reads this file to know how the project is set up.
+; Most values can also be edited from Project > Project Settings in the editor.
+
+config_version=5
+
+[application]
+
+config/name="ORBIT"
+config/description="A premium minimalist 2D physics merge puzzle. Simple to play. Infinite to master."
+config/version="0.1.0"
+run/main_scene="res://scenes/main/main.tscn"
+config/features=PackedStringArray("4.5", "GL Compatibility")
+boot_splash/bg_color=Color(0.0313726, 0.0352941, 0.0627451, 1)
+config/icon="res://icon.svg"
+
+[display]
+
+window/size/viewport_width=720
+window/size/viewport_height=1280
+window/size/window_width_override=450
+window/size/window_height_override=800
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation=1
+
+[input_devices]
+
+pointing/emulate_touch_from_mouse=true
+
+[physics]
+
+common/physics_ticks_per_second=60
+2d/default_gravity=0.0
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+environment/defaults/default_clear_color=Color(0.0313726, 0.0352941, 0.0627451, 1)

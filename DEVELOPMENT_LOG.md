@@ -4,6 +4,44 @@ Newest entries first. Every "passed" below refers to a test run that was actuall
 
 ---
 
+## 2026-11-24 — Phase 7: Depth (modes, mechanics, options, progress, puzzles) — v0.7.0
+
+Built in six milestones, each tested, rendered, committed and pushed.
+
+- **M1 Modes as data.** `GameMode` resources; Main reads rules (time limit,
+  shot limit, shrinking ring, Zen fading, daily seed, cores). `ArenaRing` split
+  from the core; multi-core gravity. Per-mode best scores.
+  *Found:* daily seeds of consecutive days collided (`hash | 1`) → SHA-256 seed.
+  *Balanced with `tools/balance.gd`* (bot, `--fixed-fps`): Blitz bonus scaled
+  with chain depth made time endless (bot games == Classic) → flat +0.5 s;
+  Collapse never shrank → shrink 3 px/s, relief 0.6 px × level (avg ~80 s).
+- **M2 Menu.** Animated orbit backdrop, mode cards with animated icons,
+  bottom sheet with rules + PLAY, tabs, fades, Android back button.
+- **M3 Mechanics.** Wildcard / comet / black hole / anchor through ONE resolver
+  (`MergeRules.find_interactions`) so each planet joins at most one interaction
+  per step. Hold slot (once per launch), sliding launcher (sideways drag that
+  starts on the launcher; downward drags still aim), gravity pulse.
+- **M4 Options.** Difficulty with separate best scores (Daily ignores it), aim
+  assist using `OrbitPhysics.predict_path` (test: within 12 px of real flight
+  after 0.5 s), 4 themes; all UI colors centralized in `UIStyle`.
+- **M5 Progress.** `Progress`: stats, 16-entry collection, 13 milestones, theme
+  unlocks; toasts; Planets and Stats tabs. Each game counted exactly once.
+- **M6 Puzzles.** 30 levels as compact data. `tools/puzzle_check.gd`: aimed bot
+  (predict_path search) + random bot. First pass: later chapters trivially
+  easy (wildcard + setup planet = instant win). Second pass: 8 unsolvable.
+  Tuned with a "value ratio" (Σ2^level / 2^goal): <1.6 never solved, 1.8–2.0
+  ≈ 25–45 %. Final: all 30 solved; sawtooth difficulty per chapter. A test now
+  forbids single-shot wins (caught puzzles 23 and 26).
+
+### Verification (executed)
+- Tests: **155 passed, 0 failed** (engine-error detection active).
+- Bot stress runs across modes with specials: no script errors.
+- Rendered and inspected: menu, sheet, settings, collection, stats, toasts,
+  specials, Solar theme with aim assist, puzzle select / in-game / complete.
+- Not verified: real devices; how sounds/haptics feel.
+
+---
+
 ## 2026-11-24 — Phase 6: Release identity
 
 ### Built

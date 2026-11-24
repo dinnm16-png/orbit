@@ -5,6 +5,7 @@ extends Control
 
 signal restart_requested
 signal menu_requested
+signal next_requested
 
 
 var _title_label: Label
@@ -13,6 +14,8 @@ var _score_label: Label
 var _best_label: Label
 var _button: Button
 var _menu_button: Button
+var _retry_button: Button
+var _stars: StarRow
 
 
 func _ready() -> void:
@@ -42,6 +45,10 @@ func _ready() -> void:
 	box.add_child(_title_label)
 	_score_label = _make_label("0", 96, UIStyle.WHITE)
 	box.add_child(_score_label)
+	_stars = StarRow.new()
+	_stars.star_size = 34.0
+	_stars.visible = false
+	box.add_child(_stars)
 	_best_label = _make_label("", 24, Color(UIStyle.WHITE, 0.6))
 	box.add_child(_best_label)
 
@@ -60,7 +67,7 @@ func _ready() -> void:
 	_button.add_theme_stylebox_override("normal", _make_box(Color(UIStyle.VIOLET, 0.16), UIStyle.VIOLET))
 	_button.add_theme_stylebox_override("hover", _make_box(Color(UIStyle.VIOLET, 0.26), UIStyle.VIOLET))
 	_button.add_theme_stylebox_override("pressed", _make_box(Color(UIStyle.AQUA, 0.18), UIStyle.AQUA))
-	_button.pressed.connect(func(): restart_requested.emit())
+	_button.pressed.connect(_on_primary)
 	var button_row := CenterContainer.new()
 	button_row.add_child(_button)
 	box.add_child(button_row)
@@ -78,9 +85,44 @@ func _ready() -> void:
 	_menu_button.add_theme_stylebox_override("hover", _make_box(Color(UIStyle.WHITE, 0.06), quiet))
 	_menu_button.add_theme_stylebox_override("pressed", _make_box(Color(UIStyle.AQUA, 0.12), UIStyle.AQUA))
 	_menu_button.pressed.connect(func(): menu_requested.emit())
+	_retry_button = _menu_button.duplicate()
+	_retry_button.text = "RETRY"
+	_retry_button.visible = false
+	_retry_button.pressed.connect(func(): restart_requested.emit())
+	var retry_row := CenterContainer.new()
+	retry_row.add_child(_retry_button)
+	box.add_child(retry_row)
 	var menu_row := CenterContainer.new()
 	menu_row.add_child(_menu_button)
 	box.add_child(menu_row)
+
+
+var _primary_is_next: bool = false
+
+
+func _on_primary() -> void:
+	if _primary_is_next:
+		next_requested.emit()
+	else:
+		restart_requested.emit()
+
+
+## Puzzle result: stars instead of a score; NEXT PUZZLE when solved.
+func present_puzzle(won: bool, stars: int, header: String, goal: String, has_next: bool) -> void:
+	_mode_label.text = header.to_upper()
+	_mode_label.visible = true
+	_title_label.text = "PUZZLE COMPLETE" if won else "NOT QUITE"
+	_score_label.visible = false
+	_stars.visible = true
+	_stars.filled = stars
+	_best_label.text = goal
+	_best_label.add_theme_color_override("font_color", Color(UIStyle.WHITE, 0.6))
+	_primary_is_next = won and has_next
+	_button.text = "NEXT PUZZLE" if _primary_is_next else ("PLAY AGAIN" if won else "TRY AGAIN")
+	_retry_button.visible = _primary_is_next
+	visible = true
+	modulate.a = 0.0
+	create_tween().tween_property(self, "modulate:a", 1.0, 0.45)
 
 
 ## title: why the game ended ("ORBIT COLLAPSED", "TIME'S UP"...).

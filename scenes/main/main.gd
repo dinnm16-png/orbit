@@ -13,7 +13,7 @@ extends Node2D
 ## seed, number of cores.
 
 enum State { PLAYING, PAUSED, GAME_OVER }
-enum EndReason { COLLAPSE, TIME, SHOTS }
+enum EndReason { COLLAPSE, TIME, SHOTS, PUZZLE_WIN, PUZZLE_FAIL }
 
 const BURST_SCRIPT := preload("res://scenes/effects/merge_burst.gd")
 const PULSE_WAVE := preload("res://scenes/effects/pulse_wave.gd")
@@ -24,6 +24,8 @@ const END_TITLES := {
 	EndReason.COLLAPSE: "ORBIT COLLAPSED",
 	EndReason.TIME: "TIME'S UP",
 	EndReason.SHOTS: "OUT OF PLANETS",
+	EndReason.PUZZLE_WIN: "PUZZLE COMPLETE",
+	EndReason.PUZZLE_FAIL: "NOT QUITE",
 }
 
 @export var config: GameConfig = preload("res://resources/config/default_config.tres")
@@ -31,6 +33,8 @@ const END_TITLES := {
 @export var mode: GameMode
 ## Fixed seed for reproducible runs (tests). 0 = random every run.
 @export var random_seed: int = 0
+## Puzzle to play in Puzzle mode (0 = the one chosen in the menu).
+@export var puzzle_number: int = 0
 ## Where scores and settings are stored. Tests use a separate file.
 @export var save_path: String = "user://orbit_save.cfg"
 
@@ -64,6 +68,9 @@ var shots_left: int = 0
 var shots_fired: int = 0
 ## Daily Orbit: today's key, e.g. "2026-11-24".
 var date_key: String = ""
+## Puzzle mode: the current level (see PuzzleCatalog.get_level), else {}.
+var puzzle: Dictionary = {}
+var _seq_index: int = 0
 
 ## Long-term stats, collection and milestones.
 var progress: Progress
@@ -104,6 +111,12 @@ var _pieces_rolled: int = 0
 func _enter_tree() -> void:
 	if mode == null:
 		mode = Session.current_mode()
+	if mode.id == "puzzle":
+		var n := puzzle_number if puzzle_number > 0 else maxi(Session.puzzle_index, 1)
+		puzzle = PuzzleCatalog.get_level(n)
+		mode = mode.duplicate()
+		mode.core_count = puzzle["cores"]
+		mode.shot_limit = puzzle["sequence"].size()
 	settings = PlayerSettings.new(save_path)
 	settings.load_settings()
 	progress = Progress.new(save_path).load_progress()
@@ -164,6 +177,8 @@ func _ready() -> void:
 
 	get_viewport().size_changed.connect(_layout)
 	_layout()
+	if not puzzle.is_empty():
+		_place_puzzle_setup()
 
 	reload_timer.wait_time = config.reload_delay
 	reload_timer.one_shot = true
@@ -180,6 +195,7 @@ func _ready() -> void:
 	pulse_button.visible = mode.pulse_enabled
 	game_over_panel.restart_requested.connect(restart)
 	game_over_panel.menu_requested.connect(go_to_menu)
+	game_over_panel.next_requested.connect(next_puzzle)
 	pause_button.pressed.connect(pause)
 	pause_menu.resume_requested.connect(resume)
 	pause_menu.restart_requested.connect(restart)
@@ -254,6 +270,17 @@ func _roll_level() -> int:
 ## Rolls the next queued planet. After the first few launches, a planet can
 ## be special. Uses only `rng`, so Daily Orbit stays identical for everyone.
 func _roll_next() -> void:
+	if not puzzle.is_empty():
+		# Puzzles use their fixed sequence instead of random planets.
+		var seq: Array = puzzle["sequence"]
+		if _seq_index < seq.size():
+			next_level = seq[_seq_index]["level"]
+			next_kind = seq[_seq_index]["kind"]
+		else:
+			next_level = -1
+			next_kind = PlanetKind.Kind.NORMAL
+		_seq_index += 1
+		return
 	next_level = _roll_level()
 	next_kind = PlanetKind.Kind.NORMAL
 	_pieces_rolled += 1
@@ -275,10 +302,12 @@ func _load_next_planet() -> void:
 		return
 	var level := next_level
 	var kind := next_kind
+	if level < 0:
+		return  # Puzzle sequence used up (e.g. via the hold slot).
 	_roll_next()
 	_load_piece(level, kind)
 	# With a shot limit, the last planet has no "next".
-	var has_next := not mode.has_shot_limit() or shots_left > 1
+	var has_next := (not mode.has_shot_limit() or shots_left > 1) and next_level >= 0
 	next_preview.show_piece(next_level if has_next else -1, next_kind)
 
 
@@ -298,12 +327,42 @@ func _load_piece(level: int, kind: int) -> void:
 		piece_info.text = ""
 
 
+# --- Puzzles ---------------------------------------------------------------------
+
+## The puzzle's starting planets, spread evenly around the core(s), resting
+## just above the surface so they settle into place within a moment.
+func _place_puzzle_setup() -> void:
+	var setup: Array = puzzle["setup"]
+	for i in setup.size():
+		var item: Dictionary = setup[i]
+		var radius := config.get_planet_radius(PlanetKind.size_level(item["kind"], item["level"]))
+		var dist := config.core_radius + radius + 4.0
+		if cores.size() > 1:
+			dist += mode.core_spacing * 0.5
+		var dir := Vector2.from_angle(-PI / 2.0 + TAU * i / setup.size())
+		var p := field.spawn_planet(item["level"], arena_center + dir * dist, true, Vector2.ZERO, item["kind"])
+		progress.on_planet_seen(p.level)
+
+
+func _check_puzzle_goal(planet: Planet) -> void:
+	if not puzzle.is_empty() and state == State.PLAYING and planet.level >= puzzle["goal"]:
+		_end(EndReason.PUZZLE_WIN)
+
+
+func next_puzzle() -> void:
+	Session.mode_id = "puzzle"
+	Session.puzzle_index = mini(puzzle.get("number", 0) + 1, PuzzleCatalog.count())
+	restart()
+
+
 # --- Hold & pulse ----------------------------------------------------------------
 
 ## Store the loaded planet, or swap it with the held one. Once per launch.
 func hold() -> void:
 	if not mode.hold_enabled or state != State.PLAYING or hold_used or launcher.loaded_planet == null:
 		return
+	if held.is_empty() and next_level < 0:
+		return  # Nothing left to bring in (end of a puzzle sequence).
 	var current: Planet = launcher.loaded_planet
 	var piece := {"level": current.level, "kind": current.kind}
 	launcher.loaded_planet = null
@@ -366,6 +425,7 @@ func _on_planets_merged(planet: Planet, chain_depth: int) -> void:
 		feedback.on_merge(planet.level, chain_depth)
 		_apply_merge_mode_rules(planet, chain_depth)
 		_news(progress.on_merge(planet.level, chain_depth))
+		_check_puzzle_goal(planet)
 		if mode.pulse_enabled:
 			pulse_charge = mini(pulse_charge + 1, config.pulse_merges_needed)
 			pulse_button.charge = float(pulse_charge) / config.pulse_merges_needed
@@ -421,6 +481,9 @@ func _set_score(value: int) -> void:
 	score = value
 	score_label.text = str(score)
 	var best := maxi(best_score, score)
+	if not puzzle.is_empty():
+		best_label.text = "PUZZLE %d   ·   %s" % [puzzle["number"], PuzzleCatalog.goal_text(puzzle["goal"]).to_upper()]
+		return
 	var label := mode.title.to_upper()
 	if mode.difficulty_applies and settings.difficulty != Difficulty.Level.NORMAL:
 		label += " · " + Difficulty.NAMES[settings.difficulty].to_upper()
@@ -537,7 +600,7 @@ func _physics_process(delta: float) -> void:
 				settled = false
 				break
 		if _since_last_shot > 1.5 and (settled or _since_last_shot > 6.0):
-			_end(EndReason.SHOTS)
+			_end(EndReason.PUZZLE_FAIL if not puzzle.is_empty() else EndReason.SHOTS)
 
 
 # --- Game end ------------------------------------------------------------------
@@ -556,6 +619,9 @@ func _end(reason: EndReason) -> void:
 	launcher.enabled = false
 	reload_timer.stop()
 	field.freeze_all()
+	if not puzzle.is_empty():
+		_present_puzzle_result(reason)
+		return
 	var is_new_best := score > best_score and _store.submit(score)
 	best_score = maxi(best_score, score)
 	var mode_title := mode.title
@@ -563,6 +629,22 @@ func _end(reason: EndReason) -> void:
 		mode_title += " · " + DailySeed.pretty(date_key)
 	game_over_panel.present(score, best_score, is_new_best, END_TITLES[reason], mode_title)
 	feedback.on_game_over()
+	_commit_progress()
+
+
+func _present_puzzle_result(reason: EndReason) -> void:
+	var won := reason == EndReason.PUZZLE_WIN
+	var n: int = puzzle["number"]
+	var stars := PuzzleCatalog.stars(shots_left, mode.shot_limit) if won else 0
+	if won:
+		_news(progress.record_puzzle(n, stars))
+		progress.save()
+		feedback.on_vanish()
+	else:
+		feedback.on_game_over()
+	var header := "Puzzle %d  ·  %s" % [n, puzzle["chapter"]]
+	game_over_panel.present_puzzle(won, stars, header, PuzzleCatalog.goal_text(puzzle["goal"]),
+		n < PuzzleCatalog.count())
 	_commit_progress()
 
 

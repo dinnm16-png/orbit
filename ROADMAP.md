@@ -70,6 +70,15 @@ Major architectural changes are proposed for approval before implementation.
 - [x] Privacy policy, store listing draft, release checklist (`docs/`)
 - [x] Release tests: icon sizes, opaque iOS icon, preset paths, app ID, no INTERNET permission
 
+## ✅ Phase 7 — Depth: modes, mechanics, options, progress, puzzles (done, v0.7.0)
+- [x] M1 Game modes as data: Classic, Zen, Daily Orbit, Blitz, Collapse, Limited Shots, Binary Star
+- [x] M2 Main menu: animated backdrop, mode cards, detail sheet, tabs, fades, back navigation
+- [x] M3 Special planets (wildcard, comet, black hole, anchor), hold slot, sliding launcher, gravity pulse
+- [x] M4 Difficulty (separate bests), aim assist (path prediction), 4 color themes
+- [x] M5 Planet collection, stats, 13 milestones, quiet toasts, theme unlocks
+- [x] M6 30 puzzles in 6 chapters with stars; every puzzle verified solvable by a bot
+- [x] Tools: tools/balance.gd, tools/puzzle_check.gd, tools/capture.gd, tools/capture_menu.gd
+
 ## Later — store release (needs the owner: accounts, fees, signing key)
 - [ ] Google Play Console / Apple Developer accounts
 - [ ] Release signing key (see `docs/RELEASE_CHECKLIST.md`)

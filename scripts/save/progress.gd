@@ -39,6 +39,7 @@ const MILESTONES := {
 	"exotic": ["Exotic Matter", "Discover all 4 special planets"],
 	"gravity_well": ["Gravity Well", "Use a gravity pulse"],
 	"explorer": ["Explorer", "Play every mode"],
+	"puzzler": ["Puzzle Master", "Earn 45 puzzle stars"],
 }
 ## Theme unlocked by each milestone. Nebula is always available.
 const THEME_UNLOCKS := {"aurora": "ringworld", "solar": "cascade", "mono": "regular"}
@@ -56,6 +57,8 @@ var discovered_levels: Array = []
 var discovered_kinds: Array = []
 var modes_played: Array = []
 var milestones: Array = []
+## Puzzle number (as String) -> best stars (1..3).
+var puzzle_stars: Dictionary = {}
 
 
 func _init(p_path: String = "user://orbit_save.cfg") -> void:
@@ -77,6 +80,7 @@ func load_progress() -> Progress:
 	discovered_kinds = Array(f.get_value("collection", "kinds", []))
 	modes_played = Array(f.get_value("stats", "modes_played", []))
 	milestones = Array(f.get_value("milestones", "unlocked", []))
+	puzzle_stars = f.get_value("puzzles", "stars", {})
 	return self
 
 
@@ -94,6 +98,7 @@ func save() -> bool:
 	f.set_value("collection", "levels", discovered_levels)
 	f.set_value("collection", "kinds", discovered_kinds)
 	f.set_value("milestones", "unlocked", milestones)
+	f.set_value("puzzles", "stars", puzzle_stars)
 	return f.save(path) == OK
 
 
@@ -144,6 +149,31 @@ func finish_game(mode_id: String, score: int, seconds: float) -> Array:
 	return _check({"score": score})
 
 
+# --- Puzzles ----------------------------------------------------------------------
+
+func stars_for(n: int) -> int:
+	return int(puzzle_stars.get(str(n), 0))
+
+
+func total_stars() -> int:
+	var total := 0
+	for k in puzzle_stars:
+		total += int(puzzle_stars[k])
+	return total
+
+
+## Puzzle 1 is always open; each later one opens when the previous is solved.
+func is_puzzle_unlocked(n: int) -> bool:
+	return n <= 1 or stars_for(n - 1) > 0
+
+
+## Records a solved puzzle (keeps the best stars). Returns news.
+func record_puzzle(n: int, stars: int) -> Array:
+	if stars > stars_for(n):
+		puzzle_stars[str(n)] = stars
+	return _check({})
+
+
 # --- Milestones -------------------------------------------------------------------
 
 func has_milestone(id: String) -> bool:
@@ -175,6 +205,7 @@ func _check(ctx: Dictionary) -> Array:
 		"exotic": discovered_kinds.size() >= 4,
 		"gravity_well": pulses_used >= 1,
 		"explorer": _played_all_modes(),
+		"puzzler": total_stars() >= 45,
 	}
 	for id in MILESTONES:
 		if conditions.get(id, false) and not milestones.has(id):

@@ -69,6 +69,15 @@ static func button(text: String, primary: bool = true, accent: Color = VIOLET, h
 	return b
 
 
+## Thin, quiet scrollbar for every scrolling list.
+static func style_scroll(s: ScrollContainer) -> void:
+	var bar := s.get_v_scroll_bar()
+	bar.custom_minimum_size.x = 6
+	bar.add_theme_stylebox_override("scroll", StyleBoxEmpty.new())
+	for state in ["grabber", "grabber_highlight", "grabber_pressed"]:
+		bar.add_theme_stylebox_override(state, box(Color(WHITE, 0.14), Color(0, 0, 0, 0), 3))
+
+
 ## Full-screen fade used for every screen change (premium, never abrupt).
 static func fade_rect(start_alpha: float) -> ColorRect:
 	var r := ColorRect.new()

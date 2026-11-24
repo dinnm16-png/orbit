@@ -6,7 +6,7 @@ extends RefCounted
 
 const MODE_DIR := "res://resources/modes/"
 ## Display order in the menu.
-const ORDER := ["classic", "zen", "daily", "blitz", "collapse", "limited", "binary"]
+const ORDER := ["classic", "puzzle", "zen", "daily", "blitz", "collapse", "limited", "binary"]
 
 static var mode_id: String = "classic"
 static var puzzle_index: int = 0

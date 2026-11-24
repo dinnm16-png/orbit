@@ -6,7 +6,12 @@ A premium minimalist 2D physics merge puzzle (Godot 4, GDScript). See
 [PROJECT_SPEC.md](PROJECT_SPEC.md), [ROADMAP.md](ROADMAP.md) and
 [DEVELOPMENT_LOG.md](DEVELOPMENT_LOG.md).
 
-![Gameplay](docs/orbit_shader_planets.png)
+<img src="docs/orbit_menu.png" width="260"> <img src="docs/orbit_specials.png" width="260"> <img src="docs/orbit_puzzles.png" width="260">
+
+**8 modes** (Classic, Puzzles, Zen, Daily Orbit, Blitz, Collapse, Limited Shots,
+Binary Star) · **special planets** (wildcard, comet, black hole, anchor) · hold
+slot · sliding launcher · gravity pulse · difficulty · aim assist · 4 themes ·
+planet collection · stats · milestones · 30 puzzles.
 
 ## Run it
 1. Install **Godot 4.5.x (standard, not .NET)** from https://godotengine.org/download

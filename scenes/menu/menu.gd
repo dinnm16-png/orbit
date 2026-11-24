@@ -23,6 +23,8 @@ var _fade: ColorRect
 var _leaving: bool = false
 var _insets: Dictionary
 var _hero: VBoxContainer
+var _puzzles: PuzzlePage
+var _pages_box: MarginContainer
 var _tagline: Label
 
 
@@ -65,6 +67,7 @@ func _ready() -> void:
 	layout.add_child(_hero)
 
 	var pages := MarginContainer.new()
+	_pages_box = pages
 	pages.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	for side in ["left", "right"]:
 		pages.add_theme_constant_override("margin_" + side, 40)
@@ -87,6 +90,8 @@ func _ready() -> void:
 		pages.add_child(_pages[key])
 
 	layout.add_child(_build_tab_bar())
+	if Session.menu_tab == "puzzles":
+		_open_puzzles.call_deferred()
 
 	_sheet = ModeSheet.new()
 	_sheet.play_requested.connect(_start_mode)
@@ -96,8 +101,9 @@ func _ready() -> void:
 	add_child(_fade)
 	create_tween().tween_property(_fade, "color:a", 0.0, 0.45)
 
-	show_tab(Session.menu_tab)
-	Session.menu_tab = "play"
+	show_tab(Session.menu_tab if TABS.has(Session.menu_tab) else "play")
+	if Session.menu_tab == "settings":
+		Session.menu_tab = "play"  # One-time: only right after a theme change.
 
 
 func _build_play_page() -> Control:
@@ -118,12 +124,7 @@ func _build_play_page() -> Control:
 func _scroll(content: Control) -> ScrollContainer:
 	var s := ScrollContainer.new()
 	s.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	# Thin, quiet scrollbar instead of the default grey bar.
-	var bar := s.get_v_scroll_bar()
-	bar.custom_minimum_size.x = 6
-	bar.add_theme_stylebox_override("scroll", StyleBoxEmpty.new())
-	for state in ["grabber", "grabber_highlight", "grabber_pressed"]:
-		bar.add_theme_stylebox_override(state, UIStyle.box(Color(UIStyle.WHITE, 0.14), Color(0, 0, 0, 0), 3))
+	UIStyle.style_scroll(s)
 	s.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	s.add_child(content)
@@ -177,6 +178,30 @@ func show_tab(key: String) -> void:
 		create_tween().tween_property(_pages["play"], "modulate:a", 1.0, 0.25)
 
 
+func _open_puzzles() -> void:
+	if _puzzles:
+		return
+	_puzzles = PuzzlePage.new()
+	_puzzles.setup(progress)
+	_puzzles.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_puzzles.play_requested.connect(func(n: int):
+		Session.puzzle_index = n
+		_start_mode(Session.load_mode("puzzle")))
+	_puzzles.closed.connect(_close_puzzles)
+	for k in _pages:
+		_pages[k].visible = false
+	_pages_box.add_child(_puzzles)
+	_puzzles.modulate.a = 0.0
+	create_tween().tween_property(_puzzles, "modulate:a", 1.0, 0.25)
+
+
+func _close_puzzles() -> void:
+	if _puzzles:
+		_puzzles.queue_free()
+		_puzzles = null
+	show_tab("play")
+
+
 func _best_key(mode: GameMode) -> String:
 	var key := mode.best_key(DailySeed.today_key())
 	if mode.difficulty_applies:
@@ -185,6 +210,9 @@ func _best_key(mode: GameMode) -> String:
 
 
 func _best_text(mode: GameMode, short: bool) -> String:
+	if mode.id == "puzzle":
+		var got := "%d / %d" % [progress.total_stars(), PuzzleCatalog.count() * 3]
+		return ("STARS\n" + got) if short else ("★ " + got)
 	var key := _best_key(mode)
 	var best := HighScoreStore.new(save_path, key).load_best()
 	if mode.daily_seed:
@@ -200,6 +228,9 @@ func _best_text(mode: GameMode, short: bool) -> String:
 
 
 func _open_sheet(mode: GameMode) -> void:
+	if mode.id == "puzzle":
+		_open_puzzles()
+		return
 	_sheet.open(mode, func(m): return _best_text(m, false), _insets["bottom"], settings)
 
 
@@ -247,11 +278,15 @@ func _start_mode(mode: GameMode) -> void:
 	var t := create_tween()
 	t.tween_property(_fade, "color:a", 1.0, 0.28)
 	t.tween_callback(func(): get_tree().change_scene_to_file(GAME_SCENE))
+	# Coming back from a puzzle should land on the puzzle list again.
+	Session.menu_tab = "puzzles" if mode.id == "puzzle" else "play"
 
 
 func _go_back() -> void:
 	if _sheet.is_open:
 		_sheet.close()
+	elif _puzzles:
+		_close_puzzles()
 	elif current_tab != "play":
 		show_tab("play")
 	else:

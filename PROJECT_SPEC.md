@@ -3,7 +3,7 @@
 > **Simple to play. Infinite to master.**
 > A premium, minimalist 2D physics merge puzzle for iOS and Android.
 
-Status: **Phase 6 (release identity) complete — v0.6.0** · Engine: **Godot 4.5.1 stable** · Language: **GDScript**
+Status: **Phase 7 (modes, mechanics, progress, puzzles) complete — v0.7.0** · Engine: **Godot 4.5.1 stable** · Language: **GDScript**
 
 ---
 
@@ -32,6 +32,27 @@ clutter, timers or manipulative mechanics.
 | Best score | Saved on the device (`user://orbit_save.cfg`), shown under the score. | ✅ Phase 3 |
 | Pause | Button (top-left) or automatic when the app is backgrounded. Menu: Resume, Restart, settings. | ✅ Phase 5 |
 | Settings | Sound, Vibration, Planet numbers (accessibility); saved on device. | ✅ Phase 5 |
+
+## 2b. Modes, mechanics and progress (v0.7.0)
+
+| Mode | Rule |
+|---|---|
+| Classic | The original. A planet resting outside the ring ends the game. |
+| Puzzles | 30 levels, 6 chapters: starting planets + fixed sequence + goal; 1–3 stars. |
+| Zen | No game over: stranded planets fade away. |
+| Daily Orbit | Same planet sequence for everyone each day (seeded by date); Normal difficulty. |
+| Blitz | 90 s; every chained merge adds 0.5 s. |
+| Collapse | Ring shrinks 3 px/s; merges push it back out (0.6 px × level). |
+| Limited Shots | 40 planets, no other ending. |
+| Binary Star | Two cores (each 0.75 × gravity), larger ring. |
+
+Special planets (after 8 launches, 7%): Wildcard (merges with anything → +1 level),
+Comet (target −1 level; level 1 shatters), Black Hole (swallows the planet it
+touches), Anchor (10× mass, merges normally). Hold slot (once per launch),
+sliding launcher, gravity pulse (10 merges). Options: difficulty (separate
+bests), aim assist, themes (Nebula; Aurora/Solar/Mono unlocked by milestones).
+Progress: stats, 16-entry collection, 13 milestones — no streaks, no
+notifications, no pressure mechanics.
 
 ## 3. Physics model (decisions & reasons)
 

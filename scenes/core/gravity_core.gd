@@ -5,7 +5,12 @@ extends StaticBody2D
 ## It is a StaticBody2D: it never moves, but planets collide with it and come
 ## to rest on it. The pull itself is applied by each Planet (see Planet and
 ## OrbitPhysics); the core only defines *where* the center is.
-## It also draws the playable boundary ring (the future game-over line).
+## It also draws the playable boundary ring (the game-over line).
+##
+## Performance: each visual part is its own child CanvasItem whose drawing is
+## cached by Godot. Animation only changes cheap properties (rotation,
+## modulate); nothing is re-drawn every frame, except the warning ring while
+## the game is actually in danger.
 
 const COLOR_VIOLET := Color("#917AFF")
 const COLOR_AQUA := Color("#52E5D5")
@@ -17,9 +22,14 @@ var config: GameConfig
 var danger: float = 0.0
 
 var _time: float = 0.0
+var _warning_visible: bool = false
 
 @onready var _collision: CollisionShape2D = $CollisionShape2D
+@onready var _boundary: Node2D = $Boundary
+@onready var _glow: Node2D = $Glow
+@onready var _body: Node2D = $Body
 @onready var _rings: Node2D = $Rings
+@onready var _warning: Node2D = $Warning
 
 
 func setup(p_config: GameConfig) -> void:
@@ -37,46 +47,45 @@ func _ready() -> void:
 	material.bounce = 0.0
 	physics_material_override = material
 
+	_boundary.draw.connect(_draw_boundary)
+	_glow.draw.connect(_draw_glow)
+	_body.draw.connect(_draw_body)
 	_rings.draw.connect(_draw_rings)
+	_warning.draw.connect(_draw_warning)
 
 
 func _process(delta: float) -> void:
 	_time += delta
 	# Slow rotation of the decorative rings; cheap because only the transform changes.
 	_rings.rotation = _time * 0.12
-	# Gentle "breathing" glow on the core body.
-	queue_redraw()
+	# Gentle "breathing" glow: only the layer's opacity changes, no redraw.
+	_glow.modulate.a = 0.8 + 0.2 * sin(_time * 1.6)
+	if danger > 0.0 or _warning_visible:
+		_warning_visible = danger > 0.0
+		_warning.queue_redraw()
 
 
-func _draw() -> void:
-	var r := config.core_radius
-	var pulse := 0.5 + 0.5 * sin(_time * 1.6)
-
-	# Boundary of the playable zone: faint filled disc + thin outline.
+func _draw_boundary() -> void:
 	var b := config.boundary_radius
-	draw_circle(Vector2.ZERO, b, Color(COLOR_SECONDARY, 0.35), true, -1.0, true)
-	draw_arc(Vector2.ZERO, b, 0.0, TAU, 160, Color(COLOR_VIOLET, 0.22), 1.5, true)
-	if danger > 0.0:
-		# Warning: the ring pulses toward white, faster as time runs out.
-		var warn := 0.5 + 0.5 * sin(_time * (8.0 + 10.0 * danger))
-		var ring := COLOR_VIOLET.lerp(COLOR_WHITE, danger)
-		# Never fully fades: even at the pulse's low point the warning stays visible.
-		draw_arc(Vector2.ZERO, b, 0.0, TAU, 160, Color(ring, 0.35 + danger * (0.3 + 0.35 * warn)), 3.0, true)
+	_boundary.draw_circle(Vector2.ZERO, b, Color(COLOR_SECONDARY, 0.35), true, -1.0, true)
+	_boundary.draw_arc(Vector2.ZERO, b, 0.0, TAU, 128, Color(COLOR_VIOLET, 0.22), 1.5, true)
 
-	# Core glow.
-	for i in 8:
-		var t := float(i) / 8.0
-		var gr := r * (2.4 - t * 1.35)
-		draw_circle(Vector2.ZERO, gr, Color(COLOR_VIOLET, 0.025 + t * 0.03 + pulse * 0.01), true, -1.0, true)
 
-	# Core body: dark sphere with a bright aqua/violet heart.
-	draw_circle(Vector2.ZERO, r, COLOR_SECONDARY, true, -1.0, true)
+func _draw_glow() -> void:
+	var r := config.core_radius
+	for i in 6:
+		var t := float(i) / 6.0
+		_glow.draw_circle(Vector2.ZERO, r * (2.4 - t * 1.35), Color(COLOR_VIOLET, 0.035 + t * 0.035), true, -1.0, true)
+
+
+func _draw_body() -> void:
+	var r := config.core_radius
+	_body.draw_circle(Vector2.ZERO, r, COLOR_SECONDARY, true, -1.0, true)
 	for i in range(1, 7):
 		var t := float(i) / 7.0
-		var cr := r * (1.0 - t * 0.78)
-		draw_circle(Vector2.ZERO, cr, COLOR_SECONDARY.lerp(COLOR_VIOLET, t * 0.9), true, -1.0, true)
-	draw_circle(Vector2.ZERO, r * 0.18, COLOR_WHITE.lerp(COLOR_AQUA, 0.3), true, -1.0, true)
-	draw_arc(Vector2.ZERO, r, 0.0, TAU, 64, Color(COLOR_AQUA, 0.55 + pulse * 0.2), 2.0, true)
+		_body.draw_circle(Vector2.ZERO, r * (1.0 - t * 0.78), COLOR_SECONDARY.lerp(COLOR_VIOLET, t * 0.9), true, -1.0, true)
+	_body.draw_circle(Vector2.ZERO, r * 0.18, COLOR_WHITE.lerp(COLOR_AQUA, 0.3), true, -1.0, true)
+	_body.draw_arc(Vector2.ZERO, r, 0.0, TAU, 64, Color(COLOR_AQUA, 0.65), 2.0, true)
 
 
 func _draw_rings() -> void:
@@ -86,3 +95,14 @@ func _draw_rings() -> void:
 	_rings.draw_arc(Vector2.ZERO, r * 1.85, PI, PI + TAU - 1.1, 96, Color(COLOR_VIOLET, 0.28), 1.0, true)
 	_rings.draw_circle(Vector2(r * 1.45, 0).rotated(-0.2), 3.0, COLOR_AQUA, true, -1.0, true)
 	_rings.draw_circle(Vector2(r * 1.85, 0).rotated(PI - 0.55), 2.2, COLOR_VIOLET, true, -1.0, true)
+
+
+func _draw_warning() -> void:
+	if danger <= 0.0:
+		return
+	# The ring pulses toward white, faster as time runs out, and never fully
+	# fades: even at the pulse's low point the warning stays visible.
+	var warn := 0.5 + 0.5 * sin(_time * (8.0 + 10.0 * danger))
+	var ring := COLOR_VIOLET.lerp(COLOR_WHITE, danger)
+	_warning.draw_arc(Vector2.ZERO, config.boundary_radius, 0.0, TAU, 128,
+		Color(ring, 0.35 + danger * (0.3 + 0.35 * warn)), 3.0, true)

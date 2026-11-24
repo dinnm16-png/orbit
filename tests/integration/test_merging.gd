@@ -131,3 +131,23 @@ func test_stress_no_duplicate_merges_value_is_conserved() -> void:
 	assert_true(merges[0] >= 4, "merges actually happened (%d)" % merges[0])
 	assert_true(max_speed <= main.config.max_planet_speed + 0.5, "speed cap respected")
 	await _cleanup(main)
+
+
+func test_resting_planet_falls_asleep() -> void:
+	# Performance: resting planets must sleep so physics can skip them.
+	var main := await _spawn_main()
+	var p := _place(main, 1, Vector2(0, -150))
+	await wait_physics_frames(240)
+	assert_true(p.sleeping, "resting planet is asleep (speed %.2f)" % p.linear_velocity.length())
+	await _cleanup(main)
+
+
+func test_planet_landing_on_sleeping_planet_still_merges() -> void:
+	var main := await _spawn_main()
+	var sleeper := _place(main, 1, Vector2(0, -150))
+	await wait_physics_frames(240)
+	assert_true(sleeper.sleeping, "precondition: planet asleep")
+	_place(main, 1, Vector2(0, -260))
+	await wait_physics_frames(120)
+	assert_eq(_levels(main), [2], "falling planet merged with the sleeping one")
+	await _cleanup(main)

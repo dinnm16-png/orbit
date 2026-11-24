@@ -1,42 +1,48 @@
 class_name PlanetArt
 extends RefCounted
-## Procedural planet drawing, shared by real planets and the next-planet preview
-## so both always look identical. Call from inside a CanvasItem's draw callback.
+## Planet drawing shared by real planets and the next-planet preview.
+##
+## The body (shading, rim light, glow) is ONE quad rendered by
+## res://resources/shaders/planet.gdshader. All planets share a single
+## ShaderMaterial and pass their color as the vertex color, so Godot can batch
+## many planets into very few draw calls. Rings are a thin separate overlay.
 
-const LIGHT_DIR := Vector2(-0.6, -0.8)
+## Quad half-size relative to the radius. Must match GLOW_SCALE in the shader.
+const GLOW_SCALE := 1.7
+const SHADER := preload("res://resources/shaders/planet.gdshader")
+
+static var _material: ShaderMaterial
 
 
-static func draw_planet(ci: CanvasItem, radius: float, c: Color, level: int, glow: bool = true) -> void:
-	# Soft outer glow: stacked translucent circles approximate a radial gradient.
-	if glow:
-		var glow_steps := 6
-		for i in glow_steps:
-			var t := float(i) / glow_steps
-			var r := radius * (1.65 - t * 0.6)
-			ci.draw_circle(Vector2.ZERO, r, Color(c, 0.035 + t * 0.02), true, -1.0, true)
+## The one shared material. Assign it to the CanvasItem that calls draw_body().
+static func material() -> ShaderMaterial:
+	if _material == null:
+		_material = ShaderMaterial.new()
+		_material.shader = SHADER
+	return _material
 
-	# Body: dark base, then lighter discs shifted toward the light = 3D shading.
-	var dark := c.darkened(0.55)
-	ci.draw_circle(Vector2.ZERO, radius, dark, true, -1.0, true)
-	var shade_steps := 7
-	for i in range(1, shade_steps):
-		var t := float(i) / shade_steps
-		var r := radius * (1.0 - t * 0.62)
-		var offset := LIGHT_DIR * radius * t * 0.38
-		ci.draw_circle(offset, r, dark.lerp(c.lightened(0.18), t), true, -1.0, true)
 
-	# Rim light on the lit side and a thin full outline for crispness.
-	ci.draw_arc(Vector2.ZERO, radius - 0.75, 0.0, TAU, 48, Color(c.lightened(0.5), 0.35), 1.5, true)
-	ci.draw_arc(Vector2.ZERO, radius - 1.0, PI * 1.05, PI * 1.6, 24, Color(1, 1, 1, 0.45), 2.0, true)
+## Draws the planet body + glow. `ci` must use PlanetArt.material().
+## The quad always covers the full glow area: the shader fades the glow to
+## zero exactly at the quad's edge, so no square corners can ever show.
+static func draw_body(ci: CanvasItem, radius: float, color: Color) -> void:
+	var h := radius * GLOW_SCALE
+	var points := PackedVector2Array([Vector2(-h, -h), Vector2(h, -h), Vector2(h, h), Vector2(-h, h)])
+	var uvs := PackedVector2Array([Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)])
+	var colors := PackedColorArray([color, color, color, color])
+	ci.draw_primitive(points, colors, uvs)
 
-	# Larger planets get an elegant tilted orbital ring.
-	if has_ring(level):
-		var points := PackedVector2Array()
-		var segments := 64
-		for i in segments + 1:
-			var a := TAU * i / segments
-			points.append(Vector2(cos(a) * radius * 1.55, sin(a) * radius * 0.38).rotated(-0.35))
-		ci.draw_polyline(points, Color(c.lightened(0.35), 0.55), 1.5, true)
+
+## Draws the tilted orbital ring for levels that have one (default material).
+static func draw_ring(ci: CanvasItem, radius: float, color: Color, level: int) -> void:
+	if not has_ring(level):
+		return
+	var points := PackedVector2Array()
+	var segments := 48
+	for i in segments + 1:
+		var a := TAU * i / segments
+		points.append(Vector2(cos(a) * radius * 1.55, sin(a) * radius * 0.38).rotated(-0.35))
+	ci.draw_polyline(points, Color(color.lightened(0.35), 0.55), 1.5, true)
 
 
 static func has_ring(level: int) -> bool:

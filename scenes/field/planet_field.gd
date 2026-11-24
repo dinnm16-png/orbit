@@ -22,6 +22,7 @@ var gravity_center: Vector2 = Vector2.ZERO:
 		gravity_center = value
 		for planet in get_planets():
 			planet.gravity_center = value
+			planet.sleeping = false  # Sleeping planets must feel the new center.
 
 
 func setup(p_config: GameConfig) -> void:

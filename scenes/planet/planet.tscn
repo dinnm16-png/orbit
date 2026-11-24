@@ -8,3 +8,6 @@ script = ExtResource("1_planet")
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 
 [node name="Visual" type="Node2D" parent="."]
+physics_interpolation_mode = 2
+
+[node name="Overlay" type="Node2D" parent="Visual"]

@@ -86,6 +86,7 @@ func _layout() -> void:
 	launcher.position = Vector2(rect.get_center().x, rect.end.y - config.launch_offset_from_bottom)
 	if launcher.loaded_planet:
 		launcher.loaded_planet.global_position = launcher.global_position
+		launcher.loaded_planet.reset_physics_interpolation()
 	next_preview.position = launcher.position + Vector2(170.0, 0.0)
 	next_label.position = next_preview.position + Vector2(-60.0, -72.0)
 	hint.position = Vector2(rect.position.x, rect.end.y - 70.0)

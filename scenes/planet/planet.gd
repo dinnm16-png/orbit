@@ -6,7 +6,7 @@ extends RigidBody2D
 ##   1. setup() is called before adding it to the scene (level + config).
 ##   2. It waits frozen at the launcher (no physics, no gravity).
 ##   3. launch() unfreezes it and gives it a velocity.
-##   4. Every physics step it is pulled toward the core and speed-capped.
+##   4. It is pulled toward the core (constant force) and speed-capped.
 ##   5. When merged, consume() removes it; PlanetField spawns the result.
 
 signal launched(planet: Planet)
@@ -38,6 +38,7 @@ var _grow_elapsed: float = INF
 
 @onready var _collision: CollisionShape2D = $CollisionShape2D
 @onready var _visual: Node2D = $Visual
+@onready var _overlay: Node2D = $Visual/Overlay
 
 
 func setup(p_config: GameConfig, p_level: int, p_gravity_center: Vector2) -> void:
@@ -78,8 +79,13 @@ func _ready() -> void:
 	freeze_mode = RigidBody2D.FREEZE_MODE_KINEMATIC
 	freeze = true
 
-	_visual.draw.connect(_draw_visual)
+	# Body: one shader quad (shared material -> batched). Rings and the danger
+	# ring live on a child overlay that uses the default material.
+	_visual.material = PlanetArt.material()
+	_visual.draw.connect(func(): PlanetArt.draw_body(_visual, radius, base_color))
+	_overlay.draw.connect(_draw_overlay)
 	_visual.queue_redraw()
+	_overlay.queue_redraw()
 
 
 ## Player launch from the launcher.
@@ -93,6 +99,7 @@ func activate(velocity: Vector2) -> void:
 	freeze = false
 	is_active = true
 	linear_velocity = OrbitPhysics.clamp_velocity(velocity, config.max_planet_speed)
+	_update_gravity_force()
 
 
 ## Makes a merge result grow from `from_radius` to its real size over
@@ -117,6 +124,8 @@ func consume() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if is_active and not freeze:
+		_update_gravity_force()
 	if _grow_elapsed < config.merge_grow_time:
 		_grow_elapsed += delta
 		_apply_grow(clampf(_grow_elapsed / config.merge_grow_time, 0.0, 1.0))
@@ -130,35 +139,46 @@ func _apply_grow(t: float) -> void:
 	_visual.scale = Vector2.ONE * (r / radius)
 
 
+## Gravity is a CONSTANT FORCE that we only update when its direction or size
+## changes noticeably (>1%).
+## - Forces are integrated before contacts are solved, so a resting planet's pull
+##   is cancelled in the same step and it reaches exactly zero velocity.
+## - Setting a force wakes a sleeping body. Re-applying gravity every step (our
+##   Phase 1 approach) therefore kept every planet awake forever. A resting
+##   planet's gravity never changes, so now it can fall asleep and cost nothing.
+func _update_gravity_force() -> void:
+	var accel := OrbitPhysics.gravity_acceleration(global_position, gravity_center, config.gravity_strength)
+	var desired := accel * mass
+	var tolerance := desired.length() * 0.01
+	if desired.distance_squared_to(constant_force) > tolerance * tolerance:
+		constant_force = desired
+
+
 func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:
-	if not is_active:
-		return
-	var accel := OrbitPhysics.gravity_acceleration(
-		state.transform.origin, gravity_center, config.gravity_strength)
-	# Apply gravity as a FORCE (not by editing velocity). Godot integrates
-	# forces before solving contacts, so a planet resting on the core gets its
-	# pull cancelled in the same step, reaches zero velocity and can sleep.
-	# Editing velocity here instead left resting planets buzzing forever.
-	state.apply_central_force(accel * mass)
 	# Speed cap: the single most important guard against "exploding" physics.
-	state.linear_velocity = OrbitPhysics.clamp_velocity(state.linear_velocity, config.max_planet_speed)
+	# Only touch the velocity when needed (writing it would wake the body).
+	var max_speed := config.max_planet_speed
+	if state.linear_velocity.length_squared() > max_speed * max_speed:
+		state.linear_velocity = OrbitPhysics.clamp_velocity(state.linear_velocity, max_speed)
 
 
 func _process(_delta: float) -> void:
 	# The body may roll, but the lighting should always come from the top-left,
 	# so the visual layer cancels the body's rotation.
-	_visual.global_rotation = 0.0
+	# Only touch the transform when the body actually rotated.
+	if not is_zero_approx(_visual.global_rotation):
+		_visual.global_rotation = 0.0
 	if danger > 0.0 or _was_in_danger:
 		_was_in_danger = danger > 0.0
-		_visual.queue_redraw()
+		_overlay.queue_redraw()  # Only the thin overlay, never the body.
 
 
-# --- Procedural drawing -------------------------------------------------------
+# --- Drawing ------------------------------------------------------------------
 
-func _draw_visual() -> void:
-	PlanetArt.draw_planet(_visual, radius, base_color, level)
+func _draw_overlay() -> void:
+	PlanetArt.draw_ring(_overlay, radius, base_color, level)
 	if danger > 0.0:
 		# Pulsing warning ring: this planet is about to end the game.
 		var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.012)
-		_visual.draw_arc(Vector2.ZERO, radius + 5.0, 0.0, TAU, 48,
+		_overlay.draw_arc(Vector2.ZERO, radius + 5.0, 0.0, TAU, 40,
 			Color(1, 1, 1, 0.35 + danger * (0.25 + 0.4 * pulse)), 3.0, true)

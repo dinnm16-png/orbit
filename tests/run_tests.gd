@@ -11,6 +11,8 @@ func _initialize() -> void:
 
 
 func _run() -> void:
+	var error_counter := preload("res://tests/error_counter.gd").new()
+	OS.add_logger(error_counter)
 	var passed := 0
 	var failed := 0
 	for dir in TEST_DIRS:
@@ -27,7 +29,11 @@ func _run() -> void:
 					continue
 				var test = script.new()
 				test.tree = self
+				var errors_before := error_counter.errors.size()
 				await test.call(name)
+				# Engine errors during a test (e.g. shader/script errors) fail it.
+				for i in range(errors_before, error_counter.errors.size()):
+					test.failures.append("engine error: %s" % error_counter.errors[i])
 				if test.failures.is_empty():
 					passed += 1
 					print("  PASS  %s" % name)

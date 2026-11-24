@@ -7,4 +7,12 @@ script = ExtResource("1_core")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 
+[node name="Boundary" type="Node2D" parent="."]
+
+[node name="Warning" type="Node2D" parent="."]
+
+[node name="Glow" type="Node2D" parent="."]
+
+[node name="Body" type="Node2D" parent="."]
+
 [node name="Rings" type="Node2D" parent="."]

@@ -38,6 +38,7 @@ func setup(p_config: GameConfig) -> void:
 func load_planet(planet: Planet) -> void:
 	loaded_planet = planet
 	planet.global_position = global_position
+	planet.reset_physics_interpolation()  # Teleport: don't smooth from old spot.
 	queue_redraw()
 
 

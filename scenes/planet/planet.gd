@@ -7,10 +7,11 @@ extends RigidBody2D
 ##   2. It waits frozen at the launcher (no physics, no gravity).
 ##   3. launch() unfreezes it and gives it a velocity.
 ##   4. Every physics step it is pulled toward the core and speed-capped.
+##   5. When merged, consume() removes it; PlanetField spawns the result.
 
 signal launched(planet: Planet)
 
-## Level 0 is the smallest planet. Merging (next milestone) will increase it.
+## Level 0 is the smallest planet. Merging creates a new planet one level up.
 var level: int = 0
 var radius: float = 20.0
 var base_color: Color = Color.WHITE
@@ -19,6 +20,17 @@ var config: GameConfig
 var gravity_center: Vector2 = Vector2.ZERO
 ## True once launched. Only active planets feel gravity.
 var is_active: bool = false
+## True once this planet has been used in a merge. A consumed planet is
+## ignored by everything (part of the duplicate-merge guard).
+var consumed: bool = false
+## 0 = launched by the player, 1+ = created by a merge (see MergeRules).
+var chain_depth: int = 0
+## PlanetField time (seconds) when this planet was created.
+var born_time: float = 0.0
+
+var _circle: CircleShape2D
+var _grow_from: float = 0.0
+var _grow_elapsed: float = INF
 
 @onready var _collision: CollisionShape2D = $CollisionShape2D
 @onready var _visual: Node2D = $Visual
@@ -36,9 +48,13 @@ func _ready() -> void:
 	assert(config != null, "Planet.setup() must be called before adding to the tree")
 
 	# Each planet gets its own shape instance, because radius differs per level.
-	var circle := CircleShape2D.new()
-	circle.radius = radius
-	_collision.shape = circle
+	_circle = CircleShape2D.new()
+	_circle.radius = radius
+	_collision.shape = _circle
+
+	# Report contacts so PlanetField can ask "who am I touching?" each step.
+	contact_monitor = true
+	max_contacts_reported = 8
 
 	var material := PhysicsMaterial.new()
 	material.friction = config.planet_friction
@@ -62,11 +78,52 @@ func _ready() -> void:
 	_visual.queue_redraw()
 
 
+## Player launch from the launcher.
 func launch(velocity: Vector2) -> void:
+	activate(velocity)
+	launched.emit(self)
+
+
+## Starts physics + gravity. Used for launches and for merge results.
+func activate(velocity: Vector2) -> void:
 	freeze = false
 	is_active = true
 	linear_velocity = OrbitPhysics.clamp_velocity(velocity, config.max_planet_speed)
-	launched.emit(self)
+
+
+## Makes a merge result grow from `from_radius` to its real size over
+## config.merge_grow_time. Collision and visuals grow together.
+func start_grow(from_radius: float) -> void:
+	if config.merge_grow_time <= 0.0 or from_radius >= radius:
+		return
+	_grow_from = from_radius
+	_grow_elapsed = 0.0
+	_apply_grow(0.0)
+
+
+## Removes this planet after a merge. Safe to call twice.
+func consume() -> void:
+	if consumed:
+		return
+	consumed = true
+	is_active = false
+	_collision.set_deferred("disabled", true)
+	hide()
+	queue_free()
+
+
+func _physics_process(delta: float) -> void:
+	if _grow_elapsed < config.merge_grow_time:
+		_grow_elapsed += delta
+		_apply_grow(clampf(_grow_elapsed / config.merge_grow_time, 0.0, 1.0))
+
+
+func _apply_grow(t: float) -> void:
+	# Ease-out: fast at first, gentle at the end — feels like a soft "pop".
+	var eased := 1.0 - pow(1.0 - t, 3.0)
+	var r := lerpf(_grow_from, radius, eased)
+	_circle.radius = r
+	_visual.scale = Vector2.ONE * (r / radius)
 
 
 func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:

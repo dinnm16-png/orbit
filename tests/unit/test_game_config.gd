@@ -31,3 +31,13 @@ func test_validate_catches_bad_values() -> void:
 	config = GameConfig.new()
 	config.max_launch_speed = config.max_planet_speed + 1.0
 	assert_false(config.validate().is_empty(), "launch faster than speed cap rejected")
+
+
+func test_adjacent_levels_have_distinct_colors() -> void:
+	# Readability: players must tell neighbouring levels apart instantly.
+	var config: GameConfig = load(DEFAULT_CONFIG)
+	for i in range(1, config.level_count()):
+		var a := config.get_planet_color(i - 1)
+		var b := config.get_planet_color(i)
+		var diff := Vector3(a.r - b.r, a.g - b.g, a.b - b.b).length()
+		assert_true(diff > 0.25, "levels %d and %d look too similar (%.2f)" % [i - 1, i, diff])

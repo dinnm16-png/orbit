@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scenes/main/main.gd" id="1_main"]
 [ext_resource type="PackedScene" path="res://scenes/core/gravity_core.tscn" id="2_core"]
 [ext_resource type="PackedScene" path="res://scenes/launcher/launcher.tscn" id="3_launcher"]
+[ext_resource type="Script" path="res://scenes/field/planet_field.gd" id="4_field"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -10,7 +11,8 @@ script = ExtResource("1_main")
 [node name="GravityCore" parent="." instance=ExtResource("2_core")]
 position = Vector2(360, 640)
 
-[node name="Planets" type="Node2D" parent="."]
+[node name="PlanetField" type="Node2D" parent="."]
+script = ExtResource("4_field")
 
 [node name="Launcher" parent="." instance=ExtResource("3_launcher")]
 position = Vector2(360, 1100)
@@ -19,6 +21,15 @@ position = Vector2(360, 1100)
 one_shot = true
 
 [node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="Score" type="Label" parent="HUD"]
+offset_top = 70.0
+offset_right = 720.0
+offset_bottom = 140.0
+theme_override_colors/font_color = Color(0.960784, 0.960784, 0.980392, 0.92)
+theme_override_font_sizes/font_size = 56
+text = "0"
+horizontal_alignment = 1
 
 [node name="Hint" type="Label" parent="HUD"]
 offset_top = 1210.0

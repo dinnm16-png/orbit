@@ -13,16 +13,16 @@ Major architectural changes are proposed for approval before implementation.
 - [x] Configurable `GameConfig` with 12 planet levels
 - [x] Headless test runner + 17 tests
 
-## Phase 2 — Merging & scoring
-- [ ] `MergeRules` (pure): which pairs merge, resulting level, max level behavior
-- [ ] Contact detection (`contact_monitor` / `body_entered`) on planets
-- [ ] **Duplicate-merge guard**: each planet can be consumed only once per step
-      (a "merging" flag + deferred resolution in one place)
-- [ ] Merged planet spawns at the contact midpoint with combined momentum
-- [ ] Chain reactions (newly merged planet can merge immediately)
-- [ ] `ScoreRules` (pure) + score display
-- [ ] Tests: merge once, no double merge with 3 touching planets, chains, scoring
-- [ ] Wake neighbours when a planet is removed (sleeping-body edge case)
+## ✅ Phase 2 — Merging & scoring (done)
+- [x] `MergeRules` (pure): pair selection, resulting level, max-level vanish
+- [x] Contact detection (`contact_monitor` + polling in `PlanetField`)
+- [x] **Duplicate-merge guard**: each planet in at most one merge per step + consumed flag
+- [x] Merged planet at center of mass, 50% of combined momentum, grow-in
+- [x] Chain reactions with time window and multiplier
+- [x] `ScoreRules` (pure) + score display + floating score popups
+- [x] Distinct colors for neighbouring levels (+ regression test)
+- [x] Tests: 41 total incl. triple contact, chain, vanish, conservation stress test
+- [x] Wake neighbours when a planet is removed
 
 ## Phase 3 — Game loop
 - [ ] Next-planet preview
@@ -32,7 +32,8 @@ Major architectural changes are proposed for approval before implementation.
 - [ ] Tests for game-over timing and edge cases
 
 ## Phase 4 — Feel & polish
-- [ ] Smooth shader-based planet rendering (removes visible shading bands)
+- [ ] Smooth shader-based planet rendering (removes visible shading bands, most visible on big planets)
+- [ ] Make top levels (10–12: pearl / gold / white) more distinct; consider a symbol per level for color-blind players
 - [ ] Merge animation, subtle particles, screen-space glow
 - [ ] Trajectory preview using `OrbitPhysics` (design decision: difficulty impact)
 - [ ] Launcher position/angle design review after playtests

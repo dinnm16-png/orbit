@@ -51,14 +51,35 @@ const MAX_LEVELS := 12
 @export var planet_radii: PackedFloat32Array = PackedFloat32Array([
 	18.0, 24.0, 31.0, 38.0, 46.0, 54.0, 63.0, 72.0, 82.0, 93.0, 105.0, 118.0,
 ])
-## Base color of each level. Derived from the ORBIT palette (violet → aqua → white).
+## Base color of each level. Built around the ORBIT palette (violet, aqua,
+## white) with a few soft accents, so NEIGHBOURING levels always differ in hue:
+## in a merge game, players must spot matching planets at a glance.
 @export var planet_colors: PackedColorArray = PackedColorArray([
-	Color("#6E5BD9"), Color("#917AFF"), Color("#B08CFF"), Color("#7A9BFF"),
-	Color("#52B8E5"), Color("#52E5D5"), Color("#7FF0C8"), Color("#C2F5E0"),
-	Color("#FFB8E0"), Color("#FFD27A"), Color("#E8E4FF"), Color("#F5F5FA"),
+	Color("#917AFF"), Color("#52E5D5"), Color("#FF8FC8"), Color("#7A9BFF"),
+	Color("#FFD27A"), Color("#5EE6A8"), Color("#C59BFF"), Color("#52B8E5"),
+	Color("#FF9F7A"), Color("#E8E4FF"), Color("#FFE9A8"), Color("#F5F5FA"),
 ])
 ## Launches pick a random level from 0 to this value (inclusive).
 @export var spawn_max_level: int = 2
+
+@export_group("Merging")
+## Fraction of the pair's momentum the merged planet keeps (0..1).
+@export_range(0.0, 1.0) var merge_velocity_keep: float = 0.5
+## Seconds over which a merged planet grows from the old size to its new size.
+## Growing (instead of appearing at full size) avoids violent overlap pushes.
+@export var merge_grow_time: float = 0.15
+## A merged planet that merges again within this many seconds continues the chain.
+@export var chain_window: float = 1.2
+## If true, two max-level planets that touch vanish (big bonus, frees space).
+@export var max_level_pairs_vanish: bool = true
+
+@export_group("Scoring")
+## Points for a level-1 merge; higher levels scale by triangular numbers.
+@export var merge_base_points: int = 10
+## Extra multiplier per chain step (0.5 → ×1, ×1.5, ×2, ×2.5 ...).
+@export var chain_bonus: float = 0.5
+## Points for two max-level planets vanishing.
+@export var vanish_points: int = 1000
 
 
 func level_count() -> int:
@@ -95,4 +116,8 @@ func validate() -> PackedStringArray:
 		errors.append("min_drag_distance must be smaller than max_drag_distance")
 	if core_radius >= boundary_radius:
 		errors.append("core_radius must be smaller than boundary_radius")
+	if merge_grow_time < 0.0 or chain_window < 0.0:
+		errors.append("merge_grow_time and chain_window must not be negative")
+	if merge_base_points < 0 or vanish_points < 0 or chain_bonus < 0.0:
+		errors.append("scoring values must not be negative")
 	return errors

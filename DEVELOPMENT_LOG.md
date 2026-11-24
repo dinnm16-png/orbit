@@ -4,6 +4,45 @@ Newest entries first. Every "passed" below refers to a test run that was actuall
 
 ---
 
+## 2026-11-24 — Phase 2: Merging & scoring
+
+### Decisions confirmed by the designer
+- Launcher stays fixed at the bottom; aim line only (no trajectory preview);
+  game-over proposal (PROJECT_SPEC §5) approved for Phase 3.
+
+### Built
+- `MergeRules` and `ScoreRules` (pure, unit-tested).
+- `PlanetField` node replaces the plain `Planets` container: spawning, merge
+  resolution (once per physics step), despawn of escaped planets.
+- `Planet`: contact reporting, `consumed` flag, `chain_depth`, grow-in after merge.
+- Score label + floating "+points" popups (chains shown in aqua with ×depth).
+- New config values: merge momentum keep, grow time, chain window, max-level
+  vanish, base points, chain bonus, vanish points.
+- Design choices made (easy to change in config): two max-level planets vanish
+  for 1000 points; chain multiplier +0.5 per step; points by triangular numbers.
+
+### Issue found & fixed
+- **Symptom:** in a rendered 30-launch session, levels 0–2 were hard to tell
+  apart (three similar violets).
+- **Fix:** new palette where neighbouring levels differ in hue, plus test
+  `test_adjacent_levels_have_distinct_colors`. Verified the test FAILS on the old
+  palette (levels 0/1, 1/2, 2/3 too similar) and PASSES on the new one.
+
+### Verification (executed)
+- `godot --headless -s res://tests/run_tests.gd` → **41 passed, 0 failed** (exit 0).
+- Rendered 30-launch simulated session (Xvfb, software OpenGL): 18 merges,
+  chains up to depth 3, highest level reached 5, no script errors.
+  Screenshots: `docs/orbit_phase2.png`, `docs/orbit_levels.png`.
+- FPS in this container (CPU software rendering) was ~48 with ~12 planets;
+  this is NOT representative of phones. Real-device performance still unverified.
+
+### Known limitations
+- Test `test_loaded_planet_at_launcher_never_merges` is weak as an integration
+  test (the active planet may drift away quickly); the rule itself is covered by
+  the unit test `test_find_pairs_ignores_inactive_planets`.
+
+---
+
 ## 2026-11-24 — Phase 1: Foundation
 
 ### Environment

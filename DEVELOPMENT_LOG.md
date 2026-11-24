@@ -4,6 +4,41 @@ Newest entries first. Every "passed" below refers to a test run that was actuall
 
 ---
 
+## 2026-11-24 — Phase 5: Mobile release prep
+
+### Built
+- `SafeArea` (pure): converts the phone's safe area to canvas margins; score,
+  pause button, launcher and hint respect notches / home indicator. Desktop: 0.
+- Pause: `PauseButton` (top-left, 72 px touch target), `PauseMenu` (Resume,
+  Restart, Sound / Vibration / Planet numbers switches). Automatic pause on
+  `NOTIFICATION_APPLICATION_PAUSED` / `FOCUS_OUT`. Main state machine gained PAUSED.
+- `PlayerSettings`: saved in the same file as the best score (separate section).
+- Accessibility: optional level numbers on planets and in the NEXT preview.
+- `export_presets.cfg`: Android (arm64 + armv7, VIBRATE permission, no INTERNET
+  permission, immersive) and iOS (iPhone + iPad, iOS 14+). Version 0.5.0.
+
+### Issues found & fixed
+- Score popups rendered above the pause menu → own `HUD/Popups` layer below overlays (+ test).
+- Default grey CheckButtons were ambiguous and off-style → custom `SwitchToggle`
+  (aqua = on). Track seams from overlapping translucent shapes → opaque colors
+  (this last tweak was not re-rendered).
+
+### Verification (executed)
+- Tests: **80 passed, 0 failed** (engine-error detection active).
+- `--export-pack Android`: pack mounted in an empty project and listed: 53 files,
+  no `tests/`, no docs, main scene present.
+- Rendered at 720×1560 (19.5:9): tall layout, pause menu, planet numbers OK.
+
+### Blocked / environment
+- dl.google.com was blocked by the cloud environment's network policy; the
+  owner approved allowing it. Export templates (4.5.1) and Android command-line
+  tools were installed in the session scratchpad.
+- Installing SDK packages requires **accepting the Android SDK license**; that is
+  the project owner's decision, so the signed APK build was not done.
+- Not verified: anything on a real device (touch, safe area, haptics, sound, FPS).
+
+---
+
 ## 2026-11-24 — Performance pass + Phase 4: Feel & polish
 
 ### Performance (measured, same benchmark before/after: ~60 planets spawned)

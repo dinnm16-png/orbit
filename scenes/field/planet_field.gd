@@ -25,6 +25,14 @@ var gravity_center: Vector2 = Vector2.ZERO:
 			planet.sleeping = false  # Sleeping planets must feel the new center.
 
 
+## Accessibility setting, applied to existing and future planets.
+var show_numbers: bool = false:
+	set(value):
+		show_numbers = value
+		for planet in get_planets():
+			planet.show_number = value
+
+
 func setup(p_config: GameConfig) -> void:
 	config = p_config
 
@@ -35,6 +43,7 @@ func spawn_planet(level: int, at: Vector2, active: bool = false, velocity: Vecto
 	planet.setup(config, level, gravity_center)
 	planet.position = at
 	planet.born_time = time
+	planet.show_number = show_numbers
 	add_child(planet)
 	if active:
 		planet.activate(velocity)

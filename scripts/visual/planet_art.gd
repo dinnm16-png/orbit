@@ -45,5 +45,15 @@ static func draw_ring(ci: CanvasItem, radius: float, color: Color, level: int) -
 	ci.draw_polyline(points, Color(color.lightened(0.35), 0.55), 1.5, true)
 
 
+## Level number (1-based) in the planet's center, for color-blind players.
+static func draw_number(ci: CanvasItem, radius: float, level: int) -> void:
+	var font := ThemeDB.fallback_font
+	var size := int(clampf(radius * 0.75, 14.0, 44.0))
+	var text := str(level + 1)
+	var w := radius * 2.0
+	ci.draw_string(font, Vector2(-radius, size * 0.36), text, HORIZONTAL_ALIGNMENT_CENTER, w, size,
+		Color(0.03, 0.035, 0.07, 0.8))
+
+
 static func has_ring(level: int) -> bool:
 	return (level >= 3 and level % 3 == 0) or level >= 9

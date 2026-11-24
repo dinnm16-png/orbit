@@ -8,6 +8,10 @@ const MAX_RADIUS := 22.0
 
 var config: GameConfig
 var level: int = -1
+var show_number: bool = false:
+	set(value):
+		show_number = value
+		queue_redraw()
 
 
 func setup(p_config: GameConfig) -> void:
@@ -44,6 +48,8 @@ func _draw() -> void:
 		return
 	var r := minf(config.get_planet_radius(level), MAX_RADIUS)
 	PlanetArt.draw_ring(self, r, config.get_planet_color(level), level)
+	if show_number:
+		PlanetArt.draw_number(self, r, level)
 
 
 func _draw_body() -> void:

@@ -11,6 +11,9 @@ static var _sounds: Dictionary = {}
 static var _generating: bool = false
 
 var config: GameConfig
+## Player settings (pause menu). Both must be on for sound/haptics to play.
+var sound_on: bool = true
+var haptics_on: bool = true
 
 var _players: Array[AudioStreamPlayer] = []
 var _next_voice: int = 0
@@ -81,7 +84,7 @@ func on_game_over() -> void:
 
 
 func _play(sound: String, pitch: float, extra_db: float) -> void:
-	if not config.sound_enabled or not _sounds.has(sound):
+	if not (config.sound_enabled and sound_on) or not _sounds.has(sound):
 		return
 	var stream: AudioStream = _sounds[sound]
 	var player := _players[_next_voice]
@@ -93,5 +96,5 @@ func _play(sound: String, pitch: float, extra_db: float) -> void:
 
 
 func _vibrate(duration_ms: int, amplitude: float) -> void:
-	if config.haptics_enabled and _haptics_available:
+	if config.haptics_enabled and haptics_on and _haptics_available:
 		Input.vibrate_handheld(duration_ms, amplitude)

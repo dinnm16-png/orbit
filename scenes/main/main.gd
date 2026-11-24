@@ -4,9 +4,11 @@ extends Node2D
 ##
 ## State machine (deliberately tiny):
 ##   PLAYING   -> launching, merging, scoring, boundary monitoring
+##   PAUSED    -> whole tree paused, pause menu shown (also when the app is
+##                sent to the background)
 ##   GAME_OVER -> simulation frozen, input off, overlay shown; restart reloads
 
-enum State { PLAYING, GAME_OVER }
+enum State { PLAYING, PAUSED, GAME_OVER }
 
 const COLOR_AQUA := Color("#52E5D5")
 const COLOR_WHITE := Color("#F5F5FA")
@@ -25,6 +27,10 @@ var best_score: int = 0
 ## Level of the planet that will be loaded after the current one.
 var next_level: int = 0
 
+var settings: PlayerSettings
+## Safe-area margins (notch, home indicator) in canvas units.
+var insets: Dictionary = {"top": 0.0, "bottom": 0.0, "left": 0.0, "right": 0.0}
+
 var _monitor: BoundaryMonitor
 var _store: HighScoreStore
 
@@ -37,6 +43,8 @@ var _store: HighScoreStore
 @onready var best_label: Label = $HUD/Best
 @onready var next_label: Label = $HUD/NextLabel
 @onready var game_over_panel: GameOverPanel = $HUD/GameOver
+@onready var pause_button: PauseButton = $HUD/PauseButton
+@onready var pause_menu: PauseMenu = $HUD/PauseMenu
 @onready var reload_timer: Timer = $ReloadTimer
 @onready var effects: Node2D = $Effects
 @onready var feedback: Feedback = $Feedback
@@ -63,6 +71,10 @@ func _ready() -> void:
 		config.boundary_radius, config.game_over_speed_threshold, config.game_over_grace_time)
 	_store = HighScoreStore.new(save_path)
 	best_score = _store.load_best()
+	settings = PlayerSettings.new(save_path)
+	settings.load_settings()
+	pause_menu.settings = settings
+	_apply_settings()
 
 	get_viewport().size_changed.connect(_layout)
 	_layout()
@@ -74,6 +86,10 @@ func _ready() -> void:
 	field.planets_merged.connect(_on_planets_merged)
 	field.planets_vanished.connect(_on_planets_vanished)
 	game_over_panel.restart_requested.connect(restart)
+	pause_button.pressed.connect(pause)
+	pause_menu.resume_requested.connect(resume)
+	pause_menu.restart_requested.connect(restart)
+	pause_menu.settings_changed.connect(_apply_settings)
 
 	_set_score(0)
 	next_level = _roll_level()
@@ -85,20 +101,24 @@ func _ready() -> void:
 ## from the actual visible rect rather than hard-coding them.
 func _layout() -> void:
 	var rect := get_viewport().get_visible_rect()
+	insets = SafeArea.current(rect.size)
+	var top: float = insets["top"]
+	var bottom: float = insets["bottom"]
 	core.position = rect.get_center()
 	field.gravity_center = core.global_position
-	launcher.position = Vector2(rect.get_center().x, rect.end.y - config.launch_offset_from_bottom)
+	launcher.position = Vector2(rect.get_center().x, rect.end.y - bottom - config.launch_offset_from_bottom)
 	if launcher.loaded_planet:
 		launcher.loaded_planet.global_position = launcher.global_position
 		launcher.loaded_planet.reset_physics_interpolation()
 	next_preview.position = launcher.position + Vector2(170.0, 0.0)
 	next_label.position = next_preview.position + Vector2(-60.0, -72.0)
-	hint.position = Vector2(rect.position.x, rect.end.y - 70.0)
+	hint.position = Vector2(rect.position.x, rect.end.y - bottom - 70.0)
 	hint.size.x = rect.size.x
-	score_label.position = Vector2(rect.position.x, rect.position.y + 70.0)
+	score_label.position = Vector2(rect.position.x, rect.position.y + top + 70.0)
 	score_label.size.x = rect.size.x
-	best_label.position = Vector2(rect.position.x, rect.position.y + 150.0)
+	best_label.position = Vector2(rect.position.x, rect.position.y + top + 150.0)
 	best_label.size.x = rect.size.x
+	pause_button.position = Vector2(rect.position.x + insets["left"] + 20.0, rect.position.y + top + 20.0)
 
 
 func _roll_level() -> int:
@@ -171,8 +191,8 @@ func _show_popup(points: int, at: Vector2, chain_depth: int) -> void:
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.size = Vector2(200, 40)
 	label.position = at - label.size * 0.5
-	$HUD.add_child(label)
-	$HUD.move_child(game_over_panel, -1)  # Overlay always stays on top.
+	# Popups live in their own layer, below the pause and game-over overlays.
+	$HUD/Popups.add_child(label)
 	var tween := label.create_tween().set_parallel(true)
 	tween.tween_property(label, "position:y", label.position.y - 50.0, 0.8) \
 		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
@@ -206,6 +226,7 @@ func _game_over() -> void:
 	if state == State.GAME_OVER:
 		return  # Guard: game over can only happen once per game.
 	state = State.GAME_OVER
+	pause_button.visible = false
 	launcher.enabled = false
 	reload_timer.stop()
 	field.freeze_all()
@@ -218,8 +239,45 @@ func _game_over() -> void:
 ## Restarts instantly by reloading the scene: the simplest way to guarantee a
 ## completely clean state (no leftover planets, timers or tweens).
 func restart() -> void:
+	get_tree().paused = false
 	if get_tree().current_scene == self:
 		get_tree().reload_current_scene()
+
+
+# --- Pause & settings ------------------------------------------------------------
+
+func pause() -> void:
+	if state != State.PLAYING:
+		return
+	state = State.PAUSED
+	launcher.enabled = false  # Cancels any aim in progress.
+	get_tree().paused = true
+	pause_menu.open()
+
+
+func resume() -> void:
+	if state != State.PAUSED:
+		return
+	pause_menu.close()
+	get_tree().paused = false
+	launcher.enabled = true
+	state = State.PLAYING
+
+
+func _apply_settings() -> void:
+	feedback.sound_on = settings.sound
+	feedback.haptics_on = settings.haptics
+	field.show_numbers = settings.planet_numbers
+	next_preview.show_number = settings.planet_numbers
+
+
+## The OS tells us when the app goes to the background (home button, phone
+## call, notification shade...). Pausing then means no game is ever lost
+## while the player is away.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		if is_node_ready():
+			pause()
 
 
 func _unhandled_input(event: InputEvent) -> void:

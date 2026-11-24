@@ -3,7 +3,7 @@
 > **Simple to play. Infinite to master.**
 > A premium, minimalist 2D physics merge puzzle for iOS and Android.
 
-Status: **Phase 4 (feel, polish & performance) complete** · Engine: **Godot 4.5.1 stable** · Language: **GDScript**
+Status: **Phase 5 (mobile release prep) — code complete, device build pending** · Engine: **Godot 4.5.1 stable** · Language: **GDScript**
 
 ---
 
@@ -30,6 +30,8 @@ clutter, timers or manipulative mechanics.
 | Game over | Based on the playable boundary ring (see §5), with a pulsing warning. | ✅ Phase 3 |
 | Restart | One tap on "PLAY AGAIN" (desktop: `R` any time). | ✅ Phase 3 |
 | Best score | Saved on the device (`user://orbit_save.cfg`), shown under the score. | ✅ Phase 3 |
+| Pause | Button (top-left) or automatic when the app is backgrounded. Menu: Resume, Restart, settings. | ✅ Phase 5 |
+| Settings | Sound, Vibration, Planet numbers (accessibility); saved on device. | ✅ Phase 5 |
 
 ## 3. Physics model (decisions & reasons)
 

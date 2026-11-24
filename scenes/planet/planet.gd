@@ -30,6 +30,13 @@ var born_time: float = 0.0
 
 ## 0..1 progress toward game over caused by this planet (0 = safe).
 var danger: float = 0.0
+## Accessibility: draw the level number (1..12) on the planet.
+var show_number: bool = false:
+	set(value):
+		if value != show_number:
+			show_number = value
+			if is_node_ready():
+				_overlay.queue_redraw()
 
 var _circle: CircleShape2D
 var _was_in_danger: bool = false
@@ -177,6 +184,8 @@ func _process(_delta: float) -> void:
 
 func _draw_overlay() -> void:
 	PlanetArt.draw_ring(_overlay, radius, base_color, level)
+	if show_number:
+		PlanetArt.draw_number(_overlay, radius, level)
 	if danger > 0.0:
 		# Pulsing warning ring: this planet is about to end the game.
 		var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.012)

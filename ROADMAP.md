@@ -52,11 +52,19 @@ Major architectural changes are proposed for approval before implementation.
 - [ ] In-game pause / restart button (only `R` and game-over restart today)
 - [ ] Performance pass on low-end Android (target 60 FPS with ~40 planets)
 
-## Phase 5 — Mobile release prep
-- [ ] Export presets (Android, iOS), icons, splash
-- [ ] Safe-area handling (notches), pause on app background
-- [ ] Settings screen (sound, haptics), accessibility: a symbol per level for color-blind players
-- [ ] Android export: add the VIBRATE permission (needed for haptics)
+## ✅ Phase 5 — Mobile release prep (code done; device build pending)
+- [x] Export presets (Android with VIBRATE permission, iOS); tests/docs excluded from builds (verified)
+- [x] Safe-area handling (notches, home indicator)
+- [x] Pause: button + automatic when the app goes to the background
+- [x] Pause menu: Resume, Restart, settings (sound, vibration, planet numbers), saved on device
+- [x] Accessibility: optional level numbers on planets (color-blind friendly)
+- [ ] Build a signed APK (blocked here: needs Android SDK license acceptance — see DEVELOPMENT_LOG)
+- [ ] Replace placeholder app ID `com.example.orbit`; final app icon + splash
+- [ ] Device testing matrix (low-end Android, recent iPhone, notched/tall screens)
+
+## Later — pre-release
+- [ ] Release signing key (Android) and App Store / Play Console setup
+- [ ] Privacy: the game collects no data (no network permission) — keep it that way or document
 - [ ] Device testing matrix
 
 ## Later (not started, needs explicit approval)

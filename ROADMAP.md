@@ -49,7 +49,7 @@ Major architectural changes are proposed for approval before implementation.
 - [ ] Feel of haptic strengths
 - [ ] Chain popups can overlap when many merges happen at once
 - [ ] Difficulty/pacing tuning from real playtests (bot game: ~260 launches, ~2.5 min)
-- [ ] In-game pause / restart button (only `R` and game-over restart today)
+- [x] In-game pause / restart button (Phase 5)
 - [ ] Performance pass on low-end Android (target 60 FPS with ~40 planets)
 
 ## ✅ Phase 5 — Mobile release prep (code done; device build pending)
@@ -59,13 +59,23 @@ Major architectural changes are proposed for approval before implementation.
 - [x] Pause menu: Resume, Restart, settings (sound, vibration, planet numbers), saved on device
 - [x] Accessibility: optional level numbers on planets (color-blind friendly)
 - [ ] Build a signed APK (blocked here: needs Android SDK license acceptance — see DEVELOPMENT_LOG)
-- [ ] Replace placeholder app ID `com.example.orbit`; final app icon + splash
 - [ ] Device testing matrix (low-end Android, recent iPhone, notched/tall screens)
 
-## Later — pre-release
-- [ ] Release signing key (Android) and App Store / Play Console setup
-- [ ] Privacy: the game collects no data (no network permission) — keep it that way or document
-- [ ] Device testing matrix
+## ✅ Phase 6 — Release identity (done)
+- [x] App icon rendered with the game's own shader (`tools/render_icons.gd`):
+      iOS 1024 (opaque), Android 192 + adaptive foreground/background/monochrome
+- [x] Splash screen (emblem + ORBIT wordmark)
+- [x] App ID `com.dinnm16.orbit` (permanent once published — confirm before first upload)
+- [x] Version 0.6.0 (code 2), consistent across project and presets (tested)
+- [x] Privacy policy, store listing draft, release checklist (`docs/`)
+- [x] Release tests: icon sizes, opaque iOS icon, preset paths, app ID, no INTERNET permission
+
+## Later — store release (needs the owner: accounts, fees, signing key)
+- [ ] Google Play Console / Apple Developer accounts
+- [ ] Release signing key (see `docs/RELEASE_CHECKLIST.md`)
+- [ ] AAB build (Gradle) for Google Play
+- [ ] Real-device screenshots + Google Play feature graphic
+- [ ] Host the privacy policy (e.g. GitHub Pages)
 
 ## Later (not started, needs explicit approval)
 - Monetization strategy (ethical, non-manipulative)

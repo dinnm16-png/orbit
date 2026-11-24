@@ -3,7 +3,7 @@
 > **Simple to play. Infinite to master.**
 > A premium, minimalist 2D physics merge puzzle for iOS and Android.
 
-Status: **Phase 5 (mobile release prep) — code complete, device build pending** · Engine: **Godot 4.5.1 stable** · Language: **GDScript**
+Status: **Phase 6 (release identity) complete — v0.6.0** · Engine: **Godot 4.5.1 stable** · Language: **GDScript**
 
 ---
 

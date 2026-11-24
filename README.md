@@ -1,5 +1,7 @@
 # ORBIT
 
+<img src="resources/icons/icon_256.png" width="96" alt="ORBIT icon">
+
 A premium minimalist 2D physics merge puzzle (Godot 4, GDScript). See
 [PROJECT_SPEC.md](PROJECT_SPEC.md), [ROADMAP.md](ROADMAP.md) and
 [DEVELOPMENT_LOG.md](DEVELOPMENT_LOG.md).

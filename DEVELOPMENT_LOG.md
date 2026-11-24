@@ -4,6 +4,39 @@ Newest entries first. Every "passed" below refers to a test run that was actuall
 
 ---
 
+## 2026-11-24 — Phase 6: Release identity
+
+### Built
+- `tools/render_icons.gd`: renders icons + splash with the in-game planet shader
+  (SubViewports, MSAA). Outputs in `resources/icons/` (committed).
+- Icons: iOS 1024 (opaque), Android legacy 192, adaptive foreground /
+  background / monochrome (432), project icon 256. Old `icon.svg` removed.
+- Splash: emblem + letter-spaced wordmark, on the background color.
+- App ID `com.dinnm16.orbit` on both platforms; version 0.6.0 (Android code 2).
+- `docs/PRIVACY_POLICY.md`, `docs/STORE_LISTING.md`, `docs/RELEASE_CHECKLIST.md`.
+- `tools/` excluded from builds.
+
+### Issues found & fixed
+- Ring had a hard brightness step where its back and front halves met →
+  per-vertex brightness following depth.
+- Monochrome (themed) icon: solid planet hid the ring → outlined planet, and the
+  back ring is hidden inside the outline.
+- Intermittent "ObjectDB instances leaked at exit" (1 in ~4 test runs). Verbose
+  run identified a still-playing `AudioStreamPlaybackWAV`. Fix: `Feedback` stops
+  its players in `_exit_tree`; the test runner waits 10 frames before quitting.
+  8 consecutive runs afterwards: no leak warning.
+- Tests read icons with `Image.load_from_file(res://...)` → editor-only warning;
+  now use the global path.
+
+### Verification (executed)
+- Tests: **86 passed, 0 failed**, 8 consecutive clean runs.
+- Exported Android pack: 63 files, icons + splash present, no tests/tools.
+- Launcher preview composited (adaptive icon in a round mask, monochrome on a
+  dark tint, 192 px) and inspected.
+- Not verified: the splash on a real device; the icons on real launchers.
+
+---
+
 ## 2026-11-24 — Phase 5: Mobile release prep
 
 ### Built

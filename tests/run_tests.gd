@@ -42,5 +42,9 @@ func _run() -> void:
 					print("  FAIL  %s" % name)
 					for f in test.failures:
 						print("        - %s" % f)
+	# Let the audio thread release stopped sounds before quitting (otherwise
+	# Godot can report them as leaked at exit).
+	for i in 10:
+		await process_frame
 	print("\n%d passed, %d failed" % [passed, failed])
 	quit(1 if failed > 0 else 0)

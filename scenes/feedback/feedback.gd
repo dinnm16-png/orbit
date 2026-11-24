@@ -41,6 +41,13 @@ func _ready() -> void:
 		_players.append(player)
 
 
+## Stop sounds when leaving the tree (restart, quit) so the audio server
+## releases their playbacks promptly instead of at shutdown.
+func _exit_tree() -> void:
+	for player in _players:
+		player.stop()
+
+
 ## Runs on a worker thread: builds every sound, then hands them to the main
 ## thread in one step (no shared data is touched while generating).
 static func _generate_sounds() -> void:

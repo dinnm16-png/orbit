@@ -24,12 +24,12 @@ Major architectural changes are proposed for approval before implementation.
 - [x] Tests: 41 total incl. triple contact, chain, vanish, conservation stress test
 - [x] Wake neighbours when a planet is removed
 
-## Phase 3 — Game loop
-- [ ] Next-planet preview
-- [ ] Game-over rule (proposal in PROJECT_SPEC §5) + warning state
-- [ ] Game-over screen, one-tap restart
-- [ ] Local best score (offline, `user://`)
-- [ ] Tests for game-over timing and edge cases
+## ✅ Phase 3 — Game loop (done)
+- [x] Next-planet preview
+- [x] Game-over rule (PROJECT_SPEC §5) + pulsing warning state
+- [x] Game-over screen, one-tap restart
+- [x] Local best score (offline, `user://`)
+- [x] Tests for game-over timing and edge cases (57 tests total)
 
 ## Phase 4 — Feel & polish
 - [ ] Smooth shader-based planet rendering (removes visible shading bands, most visible on big planets)
@@ -39,6 +39,8 @@ Major architectural changes are proposed for approval before implementation.
 - [ ] Launcher position/angle design review after playtests
 - [ ] Haptics on mobile, minimal sound design
 - [ ] Physics interpolation for high-refresh-rate displays
+- [ ] Difficulty/pacing tuning from real playtests (bot game: ~260 launches, ~2.5 min)
+- [ ] In-game pause / restart button (only `R` and game-over restart today)
 - [ ] Performance pass on low-end Android (target 60 FPS with ~40 planets)
 
 ## Phase 5 — Mobile release prep

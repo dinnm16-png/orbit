@@ -4,6 +4,34 @@ Newest entries first. Every "passed" below refers to a test run that was actuall
 
 ---
 
+## 2026-11-24 — Phase 3: Game loop
+
+### Built
+- `BoundaryMonitor` (engine-free): per-planet danger timers, progress 0..1, game over.
+- `HighScoreStore`: best score in `user://orbit_save.cfg` via ConfigFile.
+- `PlanetArt`: planet drawing extracted so the NEXT preview matches real planets.
+- `NextPreview`, `GameOverPanel` (score, best / NEW BEST, PLAY AGAIN).
+- `Main` state machine PLAYING → GAME_OVER: freezes the field, disables the
+  launcher, stops scoring, saves the best score; restart reloads the scene
+  (simplest way to guarantee a clean state).
+- Warning visuals: boundary ring and offending planet pulse white.
+
+### Issues found & fixed
+- **Warning too faint:** in a rendered bot game the warning frame was captured at
+  the pulse's low point and was nearly invisible. Raised the minimum brightness;
+  re-captured a frame at the pulse minimum to confirm it stays visible.
+
+### Verification (executed)
+- `godot --headless -s res://tests/run_tests.gd` → **57 passed, 0 failed** (exit 0).
+- Mutation check: forcing `game_over` to always be false made 4 tests fail
+  (then restored → 57 pass). The game-over tests really test the rule.
+- Rendered bot game (random aims, Xvfb): game over reached after 261 launches,
+  ~152 s, score 20,375, "NEW BEST" shown; clicking PLAY AGAIN with a simulated
+  mouse click loaded a fresh game (score 0, planet loaded, state PLAYING).
+- Still unverified: real phones, touch on actual hardware, performance.
+
+---
+
 ## 2026-11-24 — Phase 2: Merging & scoring
 
 ### Decisions confirmed by the designer

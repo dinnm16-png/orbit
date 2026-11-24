@@ -13,6 +13,8 @@ const COLOR_WHITE := Color("#F5F5FA")
 const COLOR_SECONDARY := Color("#171B30")
 
 var config: GameConfig
+## 0..1: how close the game is to ending. Brightens and pulses the boundary.
+var danger: float = 0.0
 
 var _time: float = 0.0
 
@@ -54,6 +56,12 @@ func _draw() -> void:
 	var b := config.boundary_radius
 	draw_circle(Vector2.ZERO, b, Color(COLOR_SECONDARY, 0.35), true, -1.0, true)
 	draw_arc(Vector2.ZERO, b, 0.0, TAU, 160, Color(COLOR_VIOLET, 0.22), 1.5, true)
+	if danger > 0.0:
+		# Warning: the ring pulses toward white, faster as time runs out.
+		var warn := 0.5 + 0.5 * sin(_time * (8.0 + 10.0 * danger))
+		var ring := COLOR_VIOLET.lerp(COLOR_WHITE, danger)
+		# Never fully fades: even at the pulse's low point the warning stays visible.
+		draw_arc(Vector2.ZERO, b, 0.0, TAU, 160, Color(ring, 0.35 + danger * (0.3 + 0.35 * warn)), 3.0, true)
 
 	# Core glow.
 	for i in 8:

@@ -7,6 +7,7 @@ const MAIN_SCENE := preload("res://scenes/main/main.tscn")
 func _spawn_main() -> Node2D:
 	var main: Node2D = MAIN_SCENE.instantiate()
 	main.random_seed = 42
+	main.save_path = "user://test_unused.cfg"
 	tree.root.add_child(main)
 	await wait_physics_frames(2)
 	return main

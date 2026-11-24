@@ -1,0 +1,94 @@
+class_name GameOverPanel
+extends Control
+## Full-screen game-over overlay: final score, best score, one-tap restart.
+## Built in code (not in the .tscn) so the layout logic is readable in one place.
+
+signal restart_requested
+
+const COLOR_BG := Color("#080910")
+const COLOR_VIOLET := Color("#917AFF")
+const COLOR_AQUA := Color("#52E5D5")
+const COLOR_WHITE := Color("#F5F5FA")
+
+var _score_label: Label
+var _best_label: Label
+var _button: Button
+
+
+func _ready() -> void:
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	mouse_filter = Control.MOUSE_FILTER_STOP
+	visible = false
+
+	var bg := ColorRect.new()
+	bg.color = Color(COLOR_BG, 0.84)
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(bg)
+
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(center)
+
+	var box := VBoxContainer.new()
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 18)
+	center.add_child(box)
+
+	box.add_child(_make_label("ORBIT COLLAPSED", 22, Color(COLOR_WHITE, 0.55)))
+	_score_label = _make_label("0", 96, COLOR_WHITE)
+	box.add_child(_score_label)
+	_best_label = _make_label("", 24, Color(COLOR_WHITE, 0.6))
+	box.add_child(_best_label)
+
+	var spacer := Control.new()
+	spacer.custom_minimum_size = Vector2(0, 40)
+	box.add_child(spacer)
+
+	_button = Button.new()
+	_button.text = "PLAY AGAIN"
+	_button.custom_minimum_size = Vector2(300, 84)
+	_button.focus_mode = Control.FOCUS_NONE
+	_button.add_theme_font_size_override("font_size", 28)
+	_button.add_theme_color_override("font_color", COLOR_WHITE)
+	_button.add_theme_color_override("font_hover_color", COLOR_WHITE)
+	_button.add_theme_color_override("font_pressed_color", COLOR_AQUA)
+	_button.add_theme_stylebox_override("normal", _make_box(Color(COLOR_VIOLET, 0.16), COLOR_VIOLET))
+	_button.add_theme_stylebox_override("hover", _make_box(Color(COLOR_VIOLET, 0.26), COLOR_VIOLET))
+	_button.add_theme_stylebox_override("pressed", _make_box(Color(COLOR_AQUA, 0.18), COLOR_AQUA))
+	_button.pressed.connect(func(): restart_requested.emit())
+	var button_row := CenterContainer.new()
+	button_row.add_child(_button)
+	box.add_child(button_row)
+
+
+func present(score: int, best: int, is_new_best: bool) -> void:
+	_score_label.text = str(score)
+	if is_new_best:
+		_best_label.text = "NEW BEST"
+		_best_label.add_theme_color_override("font_color", COLOR_AQUA)
+	else:
+		_best_label.text = "BEST  %d" % best
+	visible = true
+	modulate.a = 0.0
+	create_tween().tween_property(self, "modulate:a", 1.0, 0.45)
+
+
+func _make_label(text: String, size: int, color: Color) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", size)
+	label.add_theme_color_override("font_color", color)
+	return label
+
+
+func _make_box(fill: Color, border: Color) -> StyleBoxFlat:
+	var box := StyleBoxFlat.new()
+	box.bg_color = fill
+	box.border_color = border
+	box.set_border_width_all(2)
+	box.set_corner_radius_all(42)
+	box.anti_aliasing = true
+	return box

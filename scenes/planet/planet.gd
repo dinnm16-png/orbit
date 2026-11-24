@@ -28,7 +28,11 @@ var chain_depth: int = 0
 ## PlanetField time (seconds) when this planet was created.
 var born_time: float = 0.0
 
+## 0..1 progress toward game over caused by this planet (0 = safe).
+var danger: float = 0.0
+
 var _circle: CircleShape2D
+var _was_in_danger: bool = false
 var _grow_from: float = 0.0
 var _grow_elapsed: float = INF
 
@@ -144,49 +148,17 @@ func _process(_delta: float) -> void:
 	# The body may roll, but the lighting should always come from the top-left,
 	# so the visual layer cancels the body's rotation.
 	_visual.global_rotation = 0.0
+	if danger > 0.0 or _was_in_danger:
+		_was_in_danger = danger > 0.0
+		_visual.queue_redraw()
 
 
 # --- Procedural drawing -------------------------------------------------------
 
-const LIGHT_DIR := Vector2(-0.6, -0.8)
-
-
 func _draw_visual() -> void:
-	var c := base_color
-
-	# Soft outer glow: stacked translucent circles approximate a radial gradient.
-	var glow_steps := 6
-	for i in glow_steps:
-		var t := float(i) / glow_steps
-		var r := radius * (1.65 - t * 0.6)
-		_visual.draw_circle(Vector2.ZERO, r, Color(c, 0.035 + t * 0.02), true, -1.0, true)
-
-	# Body: dark base, then lighter discs shifted toward the light = 3D shading.
-	var dark := c.darkened(0.55)
-	_visual.draw_circle(Vector2.ZERO, radius, dark, true, -1.0, true)
-	var shade_steps := 7
-	for i in range(1, shade_steps):
-		var t := float(i) / shade_steps
-		var r := radius * (1.0 - t * 0.62)
-		var offset := LIGHT_DIR * radius * t * 0.38
-		_visual.draw_circle(offset, r, dark.lerp(c.lightened(0.18), t), true, -1.0, true)
-
-	# Rim light on the lit side and a thin full outline for crispness.
-	_visual.draw_arc(Vector2.ZERO, radius - 0.75, 0.0, TAU, 48, Color(c.lightened(0.5), 0.35), 1.5, true)
-	_visual.draw_arc(Vector2.ZERO, radius - 1.0, PI * 1.05, PI * 1.6, 24, Color(1, 1, 1, 0.45), 2.0, true)
-
-	# Larger planets get an elegant tilted orbital ring.
-	if (level >= 3 and level % 3 == 0) or level >= 9:
-		_draw_ring(c)
-
-
-func _draw_ring(c: Color) -> void:
-	var points := PackedVector2Array()
-	var segments := 64
-	var rx := radius * 1.55
-	var ry := radius * 0.38
-	var tilt := -0.35
-	for i in segments + 1:
-		var a := TAU * i / segments
-		points.append(Vector2(cos(a) * rx, sin(a) * ry).rotated(tilt))
-	_visual.draw_polyline(points, Color(c.lightened(0.35), 0.55), 1.5, true)
+	PlanetArt.draw_planet(_visual, radius, base_color, level)
+	if danger > 0.0:
+		# Pulsing warning ring: this planet is about to end the game.
+		var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.012)
+		_visual.draw_arc(Vector2.ZERO, radius + 5.0, 0.0, TAU, 48,
+			Color(1, 1, 1, 0.35 + danger * (0.25 + 0.4 * pulse)), 3.0, true)

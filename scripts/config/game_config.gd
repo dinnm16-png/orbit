@@ -62,6 +62,13 @@ const MAX_LEVELS := 12
 ## Launches pick a random level from 0 to this value (inclusive).
 @export var spawn_max_level: int = 2
 
+@export_group("Game over")
+## A planet whose center is outside boundary_radius and that moves slower than
+## this (pixels/second) is "in danger".
+@export var game_over_speed_threshold: float = 60.0
+## Seconds a planet may stay in danger before the game ends.
+@export var game_over_grace_time: float = 2.0
+
 @export_group("Merging")
 ## Fraction of the pair's momentum the merged planet keeps (0..1).
 @export_range(0.0, 1.0) var merge_velocity_keep: float = 0.5
@@ -118,6 +125,10 @@ func validate() -> PackedStringArray:
 		errors.append("core_radius must be smaller than boundary_radius")
 	if merge_grow_time < 0.0 or chain_window < 0.0:
 		errors.append("merge_grow_time and chain_window must not be negative")
+	if game_over_speed_threshold <= 0.0 or game_over_grace_time <= 0.0:
+		errors.append("game over threshold and grace time must be positive")
+	if launch_offset_from_bottom <= 0.0:
+		errors.append("launch_offset_from_bottom must be positive")
 	if merge_base_points < 0 or vanish_points < 0 or chain_bonus < 0.0:
 		errors.append("scoring values must not be negative")
 	return errors

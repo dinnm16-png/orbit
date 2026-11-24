@@ -17,6 +17,13 @@ const COLOR_WHITE := Color("#F5F5FA")
 
 var config: GameConfig
 var loaded_planet: Planet = null
+## When false (e.g. game over) all input is ignored and any aim is cancelled.
+var enabled: bool = true:
+	set(value):
+		enabled = value
+		if not enabled:
+			_touch_index = -1
+			queue_redraw()
 
 ## Which finger is aiming (-1 = nobody). Extra fingers are ignored.
 var _touch_index: int = -1
@@ -46,6 +53,8 @@ func current_launch_velocity() -> Vector2:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if not enabled:
+		return
 	if event is InputEventScreenTouch:
 		var touch := event as InputEventScreenTouch
 		if touch.pressed and _touch_index == -1 and loaded_planet != null:
@@ -79,7 +88,7 @@ func _release() -> void:
 
 ## Launches the loaded planet. Public so tests can fire without real input.
 func fire(velocity: Vector2) -> void:
-	if loaded_planet == null:
+	if loaded_planet == null or not enabled:
 		return
 	var planet := loaded_planet
 	loaded_planet = null

@@ -58,6 +58,13 @@ func get_active_planets() -> Array[Planet]:
 	return result
 
 
+## Stops the simulation in place (game over): no more movement or merges.
+func freeze_all() -> void:
+	set_physics_process(false)
+	for planet in get_planets():
+		planet.set_deferred("freeze", true)
+
+
 func _physics_process(delta: float) -> void:
 	time += delta
 	_despawn_escaped()

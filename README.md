@@ -10,7 +10,8 @@ A premium minimalist 2D physics merge puzzle (Godot 4, GDScript). See
 1. Install **Godot 4.5.x (standard, not .NET)** from https://godotengine.org/download
 2. Open Godot → **Import** → select this folder's `project.godot` → **Import & Edit**.
 3. Press **F5** (or the ▶ Play button, top right).
-4. Click-and-drag anywhere, pull back, release. Press **R** to restart.
+4. Click-and-drag anywhere, pull back, release. Merge equal planets; don't let
+   planets come to rest outside the ring. Press **R** to restart any time.
 
 ## Run the tests
 ```bash

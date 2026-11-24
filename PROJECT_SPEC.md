@@ -3,7 +3,7 @@
 > **Simple to play. Infinite to master.**
 > A premium, minimalist 2D physics merge puzzle for iOS and Android.
 
-Status: **Phase 2 (merging & scoring) complete** · Engine: **Godot 4.5.1 stable** · Language: **GDScript**
+Status: **Phase 3 (game loop) complete** · Engine: **Godot 4.5.1 stable** · Language: **GDScript**
 
 ---
 
@@ -26,9 +26,10 @@ clutter, timers or manipulative mechanics.
 | Max level | Two touching level-12 planets vanish (bonus, frees space). Configurable. | ✅ Phase 2 |
 | Chain reactions | A merged planet that merges again within 1.2 s continues the chain (depth 2, 3, ...). | ✅ Phase 2 |
 | Scoring | `10 × T(level) × chain multiplier`, T = triangular number (1, 3, 6, 10...), multiplier = 1 + 0.5 × (depth − 1). Vanish = 1000 × multiplier. | ✅ Phase 2 |
-| Next planet | Preview of the upcoming planet. | ⏳ Phase 3 |
-| Game over | Based on the playable boundary ring (see §5). | ⏳ Phase 3 |
-| Restart | Immediate, one tap. (Dev shortcut `R` exists now.) | ⏳ Phase 3 |
+| Next planet | Preview ("NEXT") beside the launcher shows the planet loaded after the current one. | ✅ Phase 3 |
+| Game over | Based on the playable boundary ring (see §5), with a pulsing warning. | ✅ Phase 3 |
+| Restart | One tap on "PLAY AGAIN" (desktop: `R` any time). | ✅ Phase 3 |
+| Best score | Saved on the device (`user://orbit_save.cfg`), shown under the score. | ✅ Phase 3 |
 
 ## 3. Physics model (decisions & reasons)
 
@@ -73,13 +74,18 @@ clutter, timers or manipulative mechanics.
 - Only the first finger aims; extra fingers are ignored. An OS-cancelled touch
   never fires.
 
-## 5. Game-over condition (proposal — to confirm in Phase 3)
+## 5. Game-over condition (approved, implemented in Phase 3)
 
 The faint ring around the core is the **playable boundary** (`boundary_radius`).
-Proposed rule: *the game ends when any launched planet has its center outside
+Rule: *the game ends when any launched planet has its center outside
 the boundary while nearly at rest (speed < threshold) for a continuous grace
-period (e.g. 2 s).* Moving planets passing through the ring never end the game,
-which keeps it fair. A visual warning appears during the grace period.
+period (2 s, `game_over_grace_time`).* "Nearly at rest" = slower than 60 px/s
+(`game_over_speed_threshold`). Moving planets passing through the ring never end
+the game, which keeps it fair. The timer resets if the planet moves back inside,
+speeds up, or merges away. During the grace period the boundary ring and the
+planet pulse white (never fully fading). On game over the simulation freezes,
+input is disabled, scoring stops, and the best score is saved if beaten.
+Implemented by `BoundaryMonitor` (engine-free, unit-tested).
 
 ## 6. Visual direction
 
@@ -105,13 +111,16 @@ orbit/
 ├── scripts/
 │   ├── config/game_config.gd  # GameConfig resource: all tunable numbers + validate()
 │   ├── physics/orbit_physics.gd  # Pure static math (unit-tested)
-│   └── rules/                 # Pure merge_rules.gd + score_rules.gd (unit-tested)
+│   ├── rules/                 # Pure merge_rules, score_rules, boundary_monitor (unit-tested)
+│   ├── save/high_score_store.gd  # Best score on device (ConfigFile)
+│   └── visual/planet_art.gd   # Shared procedural planet drawing
 ├── scenes/
 │   ├── main/       main.tscn/.gd       # Wires everything; spawning; layout
 │   ├── core/       gravity_core.*      # StaticBody2D core + boundary drawing
 │   ├── field/      planet_field.gd     # Owns all planets: spawn, merge, despawn
 │   ├── planet/     planet.*            # RigidBody2D planet + procedural drawing
-│   └── launcher/   launcher.*          # Touch/mouse slingshot + aim indicator
+│   ├── launcher/   launcher.*          # Touch/mouse slingshot + aim indicator
+│   └── ui/         next_preview.gd, game_over_panel.gd
 ├── tests/          # Dependency-free headless test runner + unit/integration tests
 └── docs/           # Screenshots
 ```
@@ -137,6 +146,9 @@ Key choices:
 - Integration tests: real scene + real physics, headless (launch, settle,
   speed cap, touch input, cancel, merge, no-merge, triple contact, chain,
   max-level vanish, launcher planet excluded).
+- Game loop tests: next-planet prediction, game over after grace (and not
+  before), no false game over in normal play, input/scoring locked after game
+  over, best score saved only when higher, corrupt save file handled.
 - Stress test: 16 planets; the sum of 2^level must be conserved (a duplicate
   merge would break it).
 

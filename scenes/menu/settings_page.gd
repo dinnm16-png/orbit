@@ -4,9 +4,13 @@ extends VBoxContainer
 ## (Difficulty, aim assist and themes are added in later milestones.)
 
 signal changed
+signal theme_picked(theme_id: String)
 
 var settings: PlayerSettings
 var _toggles: Dictionary = {}
+## Theme locking (filled in by the progress system; everything open by default).
+var is_theme_unlocked: Callable = func(_id): return true
+var unlock_hint: Callable = func(_id): return ""
 
 
 func setup(p_settings: PlayerSettings) -> void:
@@ -15,11 +19,35 @@ func setup(p_settings: PlayerSettings) -> void:
 
 func _ready() -> void:
 	add_theme_constant_override("separation", 10)
+	_section("DIFFICULTY")
+	var seg := SegmentedControl.new()
+	seg.setup(PackedStringArray(Difficulty.NAMES), settings.difficulty)
+	seg.changed.connect(func(i: int):
+		settings.difficulty = i
+		settings.save_settings()
+		changed.emit())
+	add_child(seg)
+	add_child(UIStyle.label("Easy: bigger ring, fewer planet sizes.  Hard: smaller ring, more sizes.", 15,
+		Color(UIStyle.WHITE, 0.35)))
+	_section("THEME")
+	var swatches := HBoxContainer.new()
+	swatches.add_theme_constant_override("separation", 8)
+	for id in Themes.ORDER:
+		var sw := ThemeSwatch.new()
+		var locked: bool = not is_theme_unlocked.call(id)
+		sw.setup(id, id == settings.theme, locked, unlock_hint.call(id) if locked else "")
+		sw.chosen.connect(func(theme_id: String):
+			settings.theme = theme_id
+			settings.save_settings()
+			theme_picked.emit(theme_id))
+		swatches.add_child(sw)
+	add_child(swatches)
 	_section("GAME FEEL")
 	_toggle("sound", "Sound")
 	_toggle("haptics", "Vibration")
 	_section("CONTROLS")
 	_toggle("movable_launcher", "Slide launcher sideways")
+	_toggle("aim_assist", "Aim assist (show flight path)")
 	_section("ACCESSIBILITY")
 	_toggle("planet_numbers", "Planet numbers")
 	var spacer := Control.new()

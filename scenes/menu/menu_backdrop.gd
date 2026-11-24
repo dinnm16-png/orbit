@@ -14,6 +14,8 @@ const ORBITS := [
 const TILT := -0.32
 
 var center: Vector2 = Vector2(360, 300)
+## Planet colors (the current theme's palette).
+var colors: PackedColorArray = PackedColorArray()
 
 var _t: float = 0.0
 var _planets: Array[Node2D] = []
@@ -28,14 +30,16 @@ func _ready() -> void:
 	var glow := Node2D.new()
 	glow.material = PlanetArt.material()
 	glow.draw.connect(func(): PlanetArt.draw_body(glow, 46.0, UIStyle.VIOLET))
+	var palette := [1, 2, 4, 3]
 	glow.position = center
 	glow.modulate.a = 0.4
 	add_child(glow)
-	for o in ORBITS:
+	for k in ORBITS.size():
+		var o: Array = ORBITS[k]
 		var p := Node2D.new()
 		p.material = PlanetArt.material()
 		var r: float = o[4]
-		var col := Color(o[5])
+		var col := colors[palette[k]] if colors.size() >= 5 else Color(o[5])
 		p.draw.connect(func(): PlanetArt.draw_body(p, r, col))
 		p.modulate.a = 0.75
 		add_child(p)

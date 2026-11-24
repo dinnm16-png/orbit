@@ -11,10 +11,6 @@ extends StaticBody2D
 ## cached by Godot. Animation only changes cheap properties (rotation,
 ## modulate); nothing is re-drawn every frame.
 
-const COLOR_VIOLET := Color("#917AFF")
-const COLOR_AQUA := Color("#52E5D5")
-const COLOR_WHITE := Color("#F5F5FA")
-const COLOR_SECONDARY := Color("#171B30")
 
 var config: GameConfig
 
@@ -58,23 +54,23 @@ func _draw_glow() -> void:
 	var r := config.core_radius
 	for i in 6:
 		var t := float(i) / 6.0
-		_glow.draw_circle(Vector2.ZERO, r * (2.4 - t * 1.35), Color(COLOR_VIOLET, 0.035 + t * 0.035), true, -1.0, true)
+		_glow.draw_circle(Vector2.ZERO, r * (2.4 - t * 1.35), Color(UIStyle.VIOLET, 0.035 + t * 0.035), true, -1.0, true)
 
 
 func _draw_body() -> void:
 	var r := config.core_radius
-	_body.draw_circle(Vector2.ZERO, r, COLOR_SECONDARY, true, -1.0, true)
+	_body.draw_circle(Vector2.ZERO, r, UIStyle.SECONDARY, true, -1.0, true)
 	for i in range(1, 7):
 		var t := float(i) / 7.0
-		_body.draw_circle(Vector2.ZERO, r * (1.0 - t * 0.78), COLOR_SECONDARY.lerp(COLOR_VIOLET, t * 0.9), true, -1.0, true)
-	_body.draw_circle(Vector2.ZERO, r * 0.18, COLOR_WHITE.lerp(COLOR_AQUA, 0.3), true, -1.0, true)
-	_body.draw_arc(Vector2.ZERO, r, 0.0, TAU, 64, Color(COLOR_AQUA, 0.65), 2.0, true)
+		_body.draw_circle(Vector2.ZERO, r * (1.0 - t * 0.78), UIStyle.SECONDARY.lerp(UIStyle.VIOLET, t * 0.9), true, -1.0, true)
+	_body.draw_circle(Vector2.ZERO, r * 0.18, UIStyle.WHITE.lerp(UIStyle.AQUA, 0.3), true, -1.0, true)
+	_body.draw_arc(Vector2.ZERO, r, 0.0, TAU, 64, Color(UIStyle.AQUA, 0.65), 2.0, true)
 
 
 func _draw_rings() -> void:
 	var r := config.core_radius
 	# Two thin elegant orbital rings with a gap, plus small "satellite" dots.
-	_rings.draw_arc(Vector2.ZERO, r * 1.45, 0.2, TAU - 0.6, 96, Color(COLOR_AQUA, 0.35), 1.2, true)
-	_rings.draw_arc(Vector2.ZERO, r * 1.85, PI, PI + TAU - 1.1, 96, Color(COLOR_VIOLET, 0.28), 1.0, true)
-	_rings.draw_circle(Vector2(r * 1.45, 0).rotated(-0.2), 3.0, COLOR_AQUA, true, -1.0, true)
-	_rings.draw_circle(Vector2(r * 1.85, 0).rotated(PI - 0.55), 2.2, COLOR_VIOLET, true, -1.0, true)
+	_rings.draw_arc(Vector2.ZERO, r * 1.45, 0.2, TAU - 0.6, 96, Color(UIStyle.AQUA, 0.35), 1.2, true)
+	_rings.draw_arc(Vector2.ZERO, r * 1.85, PI, PI + TAU - 1.1, 96, Color(UIStyle.VIOLET, 0.28), 1.0, true)
+	_rings.draw_circle(Vector2(r * 1.45, 0).rotated(-0.2), 3.0, UIStyle.AQUA, true, -1.0, true)
+	_rings.draw_circle(Vector2(r * 1.85, 0).rotated(PI - 0.55), 2.2, UIStyle.VIOLET, true, -1.0, true)

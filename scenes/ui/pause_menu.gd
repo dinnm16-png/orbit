@@ -8,10 +8,6 @@ signal restart_requested
 signal menu_requested
 signal settings_changed
 
-const COLOR_BG := Color("#080910")
-const COLOR_VIOLET := Color("#917AFF")
-const COLOR_AQUA := Color("#52E5D5")
-const COLOR_WHITE := Color("#F5F5FA")
 
 var settings: PlayerSettings
 
@@ -25,7 +21,7 @@ func _ready() -> void:
 	visible = false
 
 	var bg := ColorRect.new()
-	bg.color = Color(COLOR_BG, 0.86)
+	bg.color = Color(UIStyle.BG, 0.86)
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bg)
@@ -43,7 +39,7 @@ func _ready() -> void:
 	title.text = "PAUSED"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 22)
-	title.add_theme_color_override("font_color", Color(COLOR_WHITE, 0.55))
+	title.add_theme_color_override("font_color", Color(UIStyle.WHITE, 0.55))
 	box.add_child(title)
 
 	box.add_child(_make_button("RESUME", true, func(): resume_requested.emit()))
@@ -58,6 +54,7 @@ func _ready() -> void:
 	_toggles["haptics"] = _make_toggle(box, "Vibration")
 	_toggles["planet_numbers"] = _make_toggle(box, "Planet numbers")
 	_toggles["movable_launcher"] = _make_toggle(box, "Slide launcher")
+	_toggles["aim_assist"] = _make_toggle(box, "Aim assist")
 
 
 func open() -> void:
@@ -80,7 +77,7 @@ func _on_toggle(key: String, value: bool) -> void:
 
 func _make_toggle(parent: Control, text: String) -> SwitchToggle:
 	var key: String = {"Sound": "sound", "Vibration": "haptics", "Planet numbers": "planet_numbers",
-		"Slide launcher": "movable_launcher"}[text]
+		"Slide launcher": "movable_launcher", "Aim assist": "aim_assist"}[text]
 	var toggle := SwitchToggle.new()
 	toggle.text = text
 	toggle.custom_minimum_size = Vector2(320, 56)
@@ -97,12 +94,12 @@ func _make_button(text: String, primary: bool, action: Callable) -> Button:
 	button.custom_minimum_size = Vector2(320, 80)
 	button.add_theme_font_size_override("font_size", 26)
 	for c in ["font_color", "font_hover_color"]:
-		button.add_theme_color_override(c, COLOR_WHITE)
-	button.add_theme_color_override("font_pressed_color", COLOR_AQUA)
-	var accent := COLOR_VIOLET if primary else Color(COLOR_WHITE, 0.35)
+		button.add_theme_color_override(c, UIStyle.WHITE)
+	button.add_theme_color_override("font_pressed_color", UIStyle.AQUA)
+	var accent := UIStyle.VIOLET if primary else Color(UIStyle.WHITE, 0.35)
 	button.add_theme_stylebox_override("normal", _make_box(Color(accent, 0.16 if primary else 0.0), accent))
 	button.add_theme_stylebox_override("hover", _make_box(Color(accent, 0.26), accent))
-	button.add_theme_stylebox_override("pressed", _make_box(Color(COLOR_AQUA, 0.18), COLOR_AQUA))
+	button.add_theme_stylebox_override("pressed", _make_box(Color(UIStyle.AQUA, 0.18), UIStyle.AQUA))
 	button.pressed.connect(action)
 	return button
 

@@ -26,6 +26,7 @@ var _insets: Dictionary
 func _ready() -> void:
 	settings = PlayerSettings.new(save_path)
 	settings.load_settings()
+	Themes.apply(settings.theme)
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_insets = SafeArea.current(get_viewport_rect().size)
 
@@ -37,6 +38,7 @@ func _ready() -> void:
 	var backdrop := MenuBackdrop.new()
 	backdrop.center = Vector2(get_viewport_rect().size.x * 0.5, 250.0 + _insets["top"])
 	backdrop.modulate.a = 0.6  # Atmosphere, not decoration: keep the wordmark clean.
+	backdrop.colors = Themes.planet_colors(settings.theme)
 	add_child(backdrop)
 
 	var layout := VBoxContainer.new()
@@ -63,6 +65,8 @@ func _ready() -> void:
 	_pages["play"] = _build_play_page()
 	var settings_page := SettingsPage.new()
 	settings_page.setup(settings)
+	settings_page.changed.connect(_refresh_cards)
+	settings_page.theme_picked.connect(_on_theme_picked)
 	_pages["settings"] = _scroll(settings_page)
 	for key in _pages:
 		pages.add_child(_pages[key])
@@ -77,7 +81,8 @@ func _ready() -> void:
 	add_child(_fade)
 	create_tween().tween_property(_fade, "color:a", 0.0, 0.45)
 
-	show_tab("play")
+	show_tab(Session.menu_tab)
+	Session.menu_tab = "play"
 
 
 func _build_play_page() -> Control:
@@ -144,20 +149,66 @@ func show_tab(key: String) -> void:
 		create_tween().tween_property(_pages["play"], "modulate:a", 1.0, 0.25)
 
 
-func _best_text(mode: GameMode, short: bool) -> String:
+func _best_key(mode: GameMode) -> String:
 	var key := mode.best_key(DailySeed.today_key())
+	if mode.difficulty_applies:
+		key += Difficulty.best_key_suffix(settings.difficulty)
+	return key
+
+
+func _best_text(mode: GameMode, short: bool) -> String:
+	var key := _best_key(mode)
 	var best := HighScoreStore.new(save_path, key).load_best()
 	if mode.daily_seed:
 		var today := DailySeed.pretty(DailySeed.today_key()).to_upper()
 		return ("TODAY\n%s" % (str(best) if best > 0 else today)) if short else \
 			("TODAY  ·  %s  ·  BEST  %s" % [today, str(best) if best > 0 else "—"])
+	var diff := ""
+	if mode.difficulty_applies and settings.difficulty != Difficulty.Level.NORMAL:
+		diff = "  ·  " + Difficulty.NAMES[settings.difficulty].to_upper()
 	if best <= 0:
-		return "NEW" if short else "NOT PLAYED YET"
-	return ("BEST\n%d" % best) if short else ("BEST  %d" % best)
+		return "NEW" if short else "NOT PLAYED YET" + diff
+	return ("BEST\n%d" % best) if short else ("BEST  %d" % best) + diff
 
 
 func _open_sheet(mode: GameMode) -> void:
-	_sheet.open(mode, _best_text(mode, false), _insets["bottom"])
+	_sheet.open(mode, func(m): return _best_text(m, false), _insets["bottom"], settings)
+
+
+## Card best scores depend on the difficulty: rebuild them when it changes.
+func _refresh_cards() -> void:
+	for card in _cards():
+		card.queue_free()
+	var list: VBoxContainer = _pages["play"].get_child(0)
+	var pad := list.get_child(list.get_child_count() - 1)
+	for id in Session.ORDER:
+		var mode := Session.load_mode(id)
+		var card := ModeCard.new()
+		card.setup(mode, _best_text(mode, true))
+		card.chosen.connect(_open_sheet)
+		list.add_child(card)
+	list.move_child(pad, -1)
+
+
+func _cards() -> Array:
+	var out := []
+	for n in _pages["play"].get_child(0).get_children():
+		if n is ModeCard:
+			out.append(n)
+	return out
+
+
+## A new theme recolors everything: reload the menu (with a fade), staying on
+## the Settings tab.
+func _on_theme_picked(theme_id: String) -> void:
+	if _leaving:
+		return
+	_leaving = true
+	Themes.apply(theme_id)
+	Session.menu_tab = "settings"
+	var t := create_tween()
+	t.tween_property(_fade, "color:a", 1.0, 0.2)
+	t.tween_callback(func(): get_tree().reload_current_scene() if get_tree().current_scene == self else null)
 
 
 func _start_mode(mode: GameMode) -> void:

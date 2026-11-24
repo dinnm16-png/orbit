@@ -4,12 +4,14 @@ extends RefCounted
 ## Every screen builds its widgets through these helpers, so the whole app
 ## stays visually consistent and can be restyled from here.
 
-const BG := Color("#080910")
-const SURFACE := Color("#11142A")
-const SECONDARY := Color("#171B30")
-const VIOLET := Color("#917AFF")
-const AQUA := Color("#52E5D5")
-const WHITE := Color("#F5F5FA")
+## Theme colors (see Themes.apply). VIOLET = primary accent, AQUA = second
+## accent; the names come from the default "Nebula" theme.
+static var BG := Color("#080910")
+static var SURFACE := Color("#11142A")
+static var SECONDARY := Color("#171B30")
+static var VIOLET := Color("#917AFF")
+static var AQUA := Color("#52E5D5")
+static var WHITE := Color("#F5F5FA")
 
 static var _fonts: Dictionary = {}
 

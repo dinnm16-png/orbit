@@ -15,8 +15,6 @@ extends Node2D
 enum State { PLAYING, PAUSED, GAME_OVER }
 enum EndReason { COLLAPSE, TIME, SHOTS }
 
-const COLOR_AQUA := Color("#52E5D5")
-const COLOR_WHITE := Color("#F5F5FA")
 const BURST_SCRIPT := preload("res://scenes/effects/merge_burst.gd")
 const PULSE_WAVE := preload("res://scenes/effects/pulse_wave.gd")
 const SPECIAL_TEXT := {"downgrade": "−1", "shatter": "SHATTERED", "swallow": "SWALLOWED"}
@@ -101,8 +99,15 @@ var _pieces_rolled: int = 0
 func _enter_tree() -> void:
 	if mode == null:
 		mode = Session.current_mode()
-	# Each mode gets its own copy of the config (never edit the shared file).
+	settings = PlayerSettings.new(save_path)
+	settings.load_settings()
+	Themes.apply(settings.theme)
+	# Each mode gets its own copy of the config (never edit the shared file),
+	# then difficulty and theme are layered on top.
 	config = mode.apply_to(config)
+	if mode.difficulty_applies:
+		config = Difficulty.apply(config, settings.difficulty)
+	config.planet_colors = Themes.planet_colors(settings.theme)
 	var errors := config.validate()
 	assert(errors.is_empty(), "Invalid GameConfig: %s" % ", ".join(errors))
 	# Children's _ready() runs before ours, so configure them here, first.
@@ -135,16 +140,17 @@ func _ready() -> void:
 	arena_radius = base_arena_radius
 	arena.base_radius = base_arena_radius
 	arena.radius = arena_radius
-	arena.accent = mode.accent
+	arena.accent = UIStyle.VIOLET  # In game, the ring follows the theme (mode colors are for menus).
 	time_left = mode.time_limit
 	shots_left = mode.shot_limit
 
 	_monitor = BoundaryMonitor.new(
 		arena_radius, config.game_over_speed_threshold, config.game_over_grace_time)
-	_store = HighScoreStore.new(save_path, mode.best_key(date_key))
+	var key := mode.best_key(date_key)
+	if mode.difficulty_applies:
+		key += Difficulty.best_key_suffix(settings.difficulty)
+	_store = HighScoreStore.new(save_path, key)
 	best_score = _store.load_best()
-	settings = PlayerSettings.new(save_path)
-	settings.load_settings()
 	pause_menu.settings = settings
 	_apply_settings()
 
@@ -203,6 +209,7 @@ func _layout() -> void:
 		centers.append(cores[i].global_position)
 	field.gravity_centers = centers
 	field.arena_center = arena_center
+	launcher.gravity_centers = centers
 	var launch_y := rect.end.y - bottom - config.launch_offset_from_bottom
 	launcher.position = Vector2(rect.get_center().x, launch_y)
 	launcher.track_min_x = rect.get_center().x - config.launcher_track_half_width
@@ -350,7 +357,7 @@ func _on_planets_merged(planet: Planet, chain_depth: int) -> void:
 func _on_planets_vanished(at: Vector2, level: int, chain_depth: int) -> void:
 	var points := ScoreRules.vanish_points(config.vanish_points, chain_depth, config.chain_bonus)
 	if _add_score(points, at, chain_depth):
-		_spawn_burst(at, COLOR_WHITE, config.get_planet_radius(level), 2.0)
+		_spawn_burst(at, UIStyle.WHITE, config.get_planet_radius(level), 2.0)
 		feedback.on_vanish()
 
 
@@ -369,7 +376,7 @@ func _apply_merge_mode_rules(planet: Planet, chain_depth: int) -> void:
 		# add time faster than it ran out — measured with tools/balance.gd.)
 		var bonus := mode.time_bonus_per_chain
 		time_left += bonus
-		_show_text_popup("+%.1fs" % bonus, planet.global_position - Vector2(0, planet.radius + 46.0), COLOR_AQUA)
+		_show_text_popup("+%.1fs" % bonus, planet.global_position - Vector2(0, planet.radius + 46.0), UIStyle.AQUA)
 	if mode.shrink_relief_per_level > 0.0:
 		arena_radius = minf(base_arena_radius, arena_radius + mode.shrink_relief_per_level * planet.level)
 
@@ -382,7 +389,7 @@ func _add_score(points: int, at: Vector2, chain_depth: int) -> bool:
 	var text := "+%d" % points
 	if chain_depth >= 2:
 		text += "  ×%d" % chain_depth
-	_show_text_popup(text, at, COLOR_AQUA if chain_depth >= 2 else COLOR_WHITE, 30 if chain_depth >= 2 else 26)
+	_show_text_popup(text, at, UIStyle.AQUA if chain_depth >= 2 else UIStyle.WHITE, 30 if chain_depth >= 2 else 26)
 	return true
 
 
@@ -398,6 +405,8 @@ func _set_score(value: int) -> void:
 	score_label.text = str(score)
 	var best := maxi(best_score, score)
 	var label := mode.title.to_upper()
+	if mode.difficulty_applies and settings.difficulty != Difficulty.Level.NORMAL:
+		label += " · " + Difficulty.NAMES[settings.difficulty].to_upper()
 	if mode.daily_seed:
 		label = "DAILY · " + DailySeed.pretty(date_key).to_upper()
 	best_label.text = label + ("   ·   BEST  %d" % best if best > 0 else "")
@@ -434,7 +443,7 @@ func _update_status() -> void:
 		status_label.text = text
 	# Last 10 seconds of Blitz: the timer turns aqua.
 	var urgent := mode.is_timed() and time_left <= 10.0
-	status_label.add_theme_color_override("font_color", COLOR_AQUA if urgent else Color(COLOR_WHITE, 0.7))
+	status_label.add_theme_color_override("font_color", UIStyle.AQUA if urgent else Color(UIStyle.WHITE, 0.7))
 
 
 # --- Mode rules each physics step ---------------------------------------------
@@ -567,6 +576,7 @@ func _apply_settings() -> void:
 	next_preview.show_number = settings.planet_numbers
 	hold_slot.show_number = settings.planet_numbers
 	launcher.movable = settings.movable_launcher
+	launcher.aim_assist = settings.aim_assist
 
 
 ## The OS tells us when the app goes to the background (home button, phone

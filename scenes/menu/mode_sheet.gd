@@ -31,7 +31,8 @@ func _ready() -> void:
 	add_child(_panel)
 
 
-func open(p_mode: GameMode, best_text: String, bottom_inset: float) -> void:
+## best_text: Callable(mode) -> String, re-evaluated when the difficulty changes.
+func open(p_mode: GameMode, best_text: Callable, bottom_inset: float, settings: PlayerSettings = null) -> void:
 	mode = p_mode
 	if _content:
 		_content.queue_free()
@@ -65,7 +66,18 @@ func open(p_mode: GameMode, best_text: String, bottom_inset: float) -> void:
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	desc.custom_minimum_size = Vector2(560, 0)
 	_content.add_child(desc)
-	_content.add_child(UIStyle.label(best_text, 18, Color(UIStyle.WHITE, 0.45), 3))
+	var best_label := UIStyle.label(best_text.call(mode), 18, Color(UIStyle.WHITE, 0.45), 3)
+	_content.add_child(best_label)
+	if settings and mode.difficulty_applies:
+		var seg := SegmentedControl.new()
+		seg.setup(PackedStringArray(Difficulty.NAMES), settings.difficulty, mode.accent)
+		seg.changed.connect(func(i: int):
+			settings.difficulty = i
+			settings.save_settings()
+			best_label.text = best_text.call(mode))
+		_content.add_child(seg)
+	elif mode.daily_seed:
+		_content.add_child(UIStyle.label("Same rules for everyone: always Normal difficulty.", 16, Color(UIStyle.WHITE, 0.35)))
 
 	var gap := Control.new()
 	gap.custom_minimum_size = Vector2(0, 8)

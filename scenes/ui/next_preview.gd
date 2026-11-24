@@ -2,7 +2,6 @@ class_name NextPreview
 extends Node2D
 ## Shows a queued planet (used for both NEXT and HOLD), special kinds included.
 
-const COLOR_WHITE := Color("#F5F5FA")
 ## Preview size in pixels (radius); real sizes would be too big for big levels.
 const MAX_RADIUS := 22.0
 
@@ -78,7 +77,7 @@ func _color() -> Color:
 
 
 func _draw() -> void:
-	draw_arc(Vector2.ZERO, MAX_RADIUS + 12.0, 0.0, TAU, 48, Color(COLOR_WHITE, 0.10), 1.0, true)
+	draw_arc(Vector2.ZERO, MAX_RADIUS + 12.0, 0.0, TAU, 48, Color(UIStyle.WHITE, 0.10), 1.0, true)
 
 
 func _draw_overlay() -> void:

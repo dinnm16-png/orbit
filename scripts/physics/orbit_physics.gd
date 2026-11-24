@@ -27,6 +27,27 @@ static func gravity_acceleration_multi(position: Vector2, centers: Array, streng
 	return total
 
 
+## Predicted flight path for the aim assist: the same gravity, damping and
+## speed cap as the real simulation, but without collisions with planets.
+## Stops when the path reaches a core. Returns one point per `step` seconds.
+static func predict_path(start: Vector2, velocity: Vector2, centers: Array, strength: float,
+		linear_damp: float, max_speed: float, step: float, steps: int, stop_radius: float) -> PackedVector2Array:
+	var points := PackedVector2Array()
+	var pos := start
+	var vel := velocity
+	for i in steps:
+		# Same order as Godot's 2D integration: forces, damping, then position.
+		vel += gravity_acceleration_multi(pos, centers, strength) * step
+		vel *= maxf(1.0 - step * linear_damp, 0.0)
+		vel = vel.limit_length(max_speed)
+		pos += vel * step
+		points.append(pos)
+		for c in centers:
+			if pos.distance_to(c) <= stop_radius:
+				return points
+	return points
+
+
 ## Caps a velocity to `max_speed` while keeping its direction.
 static func clamp_velocity(velocity: Vector2, max_speed: float) -> Vector2:
 	return velocity.limit_length(max_speed)

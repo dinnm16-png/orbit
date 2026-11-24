@@ -10,6 +10,8 @@ const ORDER := ["classic", "zen", "daily", "blitz", "collapse", "limited", "bina
 
 static var mode_id: String = "classic"
 static var puzzle_index: int = 0
+## Menu tab to show when the menu (re)opens.
+static var menu_tab: String = "play"
 
 
 static func load_mode(id: String) -> GameMode:

@@ -170,7 +170,7 @@ func _downgrade(comet: Planet, target: Planet) -> void:
 func _swallow(hole: Planet, target: Planet) -> void:
 	var pos := hole.global_position
 	_remove(hole, target)
-	special_event.emit("swallow", pos, Color("#917AFF"))
+	special_event.emit("swallow", pos, UIStyle.VIOLET)
 
 
 func _destroy_both(a: Planet, b: Planet) -> void:

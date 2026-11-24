@@ -6,10 +6,6 @@ extends Control
 signal restart_requested
 signal menu_requested
 
-const COLOR_BG := Color("#080910")
-const COLOR_VIOLET := Color("#917AFF")
-const COLOR_AQUA := Color("#52E5D5")
-const COLOR_WHITE := Color("#F5F5FA")
 
 var _title_label: Label
 var _mode_label: Label
@@ -25,7 +21,7 @@ func _ready() -> void:
 	visible = false
 
 	var bg := ColorRect.new()
-	bg.color = Color(COLOR_BG, 0.84)
+	bg.color = Color(UIStyle.BG, 0.84)
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bg)
@@ -40,13 +36,13 @@ func _ready() -> void:
 	box.add_theme_constant_override("separation", 18)
 	center.add_child(box)
 
-	_mode_label = _make_label("", 18, Color(COLOR_WHITE, 0.4))
+	_mode_label = _make_label("", 18, Color(UIStyle.WHITE, 0.4))
 	box.add_child(_mode_label)
-	_title_label = _make_label("ORBIT COLLAPSED", 22, Color(COLOR_WHITE, 0.6))
+	_title_label = _make_label("ORBIT COLLAPSED", 22, Color(UIStyle.WHITE, 0.6))
 	box.add_child(_title_label)
-	_score_label = _make_label("0", 96, COLOR_WHITE)
+	_score_label = _make_label("0", 96, UIStyle.WHITE)
 	box.add_child(_score_label)
-	_best_label = _make_label("", 24, Color(COLOR_WHITE, 0.6))
+	_best_label = _make_label("", 24, Color(UIStyle.WHITE, 0.6))
 	box.add_child(_best_label)
 
 	var spacer := Control.new()
@@ -58,12 +54,12 @@ func _ready() -> void:
 	_button.custom_minimum_size = Vector2(300, 84)
 	_button.focus_mode = Control.FOCUS_NONE
 	_button.add_theme_font_size_override("font_size", 28)
-	_button.add_theme_color_override("font_color", COLOR_WHITE)
-	_button.add_theme_color_override("font_hover_color", COLOR_WHITE)
-	_button.add_theme_color_override("font_pressed_color", COLOR_AQUA)
-	_button.add_theme_stylebox_override("normal", _make_box(Color(COLOR_VIOLET, 0.16), COLOR_VIOLET))
-	_button.add_theme_stylebox_override("hover", _make_box(Color(COLOR_VIOLET, 0.26), COLOR_VIOLET))
-	_button.add_theme_stylebox_override("pressed", _make_box(Color(COLOR_AQUA, 0.18), COLOR_AQUA))
+	_button.add_theme_color_override("font_color", UIStyle.WHITE)
+	_button.add_theme_color_override("font_hover_color", UIStyle.WHITE)
+	_button.add_theme_color_override("font_pressed_color", UIStyle.AQUA)
+	_button.add_theme_stylebox_override("normal", _make_box(Color(UIStyle.VIOLET, 0.16), UIStyle.VIOLET))
+	_button.add_theme_stylebox_override("hover", _make_box(Color(UIStyle.VIOLET, 0.26), UIStyle.VIOLET))
+	_button.add_theme_stylebox_override("pressed", _make_box(Color(UIStyle.AQUA, 0.18), UIStyle.AQUA))
 	_button.pressed.connect(func(): restart_requested.emit())
 	var button_row := CenterContainer.new()
 	button_row.add_child(_button)
@@ -74,13 +70,13 @@ func _ready() -> void:
 	_menu_button.custom_minimum_size = Vector2(300, 72)
 	_menu_button.focus_mode = Control.FOCUS_NONE
 	_menu_button.add_theme_font_size_override("font_size", 24)
-	_menu_button.add_theme_color_override("font_color", Color(COLOR_WHITE, 0.8))
-	_menu_button.add_theme_color_override("font_hover_color", COLOR_WHITE)
-	_menu_button.add_theme_color_override("font_pressed_color", COLOR_AQUA)
-	var quiet := Color(COLOR_WHITE, 0.3)
+	_menu_button.add_theme_color_override("font_color", Color(UIStyle.WHITE, 0.8))
+	_menu_button.add_theme_color_override("font_hover_color", UIStyle.WHITE)
+	_menu_button.add_theme_color_override("font_pressed_color", UIStyle.AQUA)
+	var quiet := Color(UIStyle.WHITE, 0.3)
 	_menu_button.add_theme_stylebox_override("normal", _make_box(Color(0, 0, 0, 0), quiet))
-	_menu_button.add_theme_stylebox_override("hover", _make_box(Color(COLOR_WHITE, 0.06), quiet))
-	_menu_button.add_theme_stylebox_override("pressed", _make_box(Color(COLOR_AQUA, 0.12), COLOR_AQUA))
+	_menu_button.add_theme_stylebox_override("hover", _make_box(Color(UIStyle.WHITE, 0.06), quiet))
+	_menu_button.add_theme_stylebox_override("pressed", _make_box(Color(UIStyle.AQUA, 0.12), UIStyle.AQUA))
 	_menu_button.pressed.connect(func(): menu_requested.emit())
 	var menu_row := CenterContainer.new()
 	menu_row.add_child(_menu_button)
@@ -96,7 +92,7 @@ func present(score: int, best: int, is_new_best: bool, title: String = "ORBIT CO
 	_score_label.text = str(score)
 	if is_new_best:
 		_best_label.text = "NEW BEST"
-		_best_label.add_theme_color_override("font_color", COLOR_AQUA)
+		_best_label.add_theme_color_override("font_color", UIStyle.AQUA)
 	else:
 		_best_label.text = "BEST  %d" % best
 	visible = true

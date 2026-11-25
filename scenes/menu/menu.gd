@@ -109,6 +109,11 @@ func _ready() -> void:
 func _build_play_page() -> Control:
 	var list := VBoxContainer.new()
 	list.add_theme_constant_override("separation", 14)
+	var code_btn := UIStyle.button("PLAY A FRIEND'S CHALLENGE", false, UIStyle.AQUA, 64)
+	code_btn.add_theme_font_size_override("font_size", 18)
+	code_btn.add_theme_color_override("font_color", UIStyle.AQUA)
+	code_btn.pressed.connect(open_challenge)
+	list.add_child(code_btn)
 	for id in Session.ORDER:
 		var mode := Session.load_mode(id)
 		var card := ModeCard.new()
@@ -212,7 +217,7 @@ func _best_key(mode: GameMode) -> String:
 func _best_text(mode: GameMode, short: bool) -> String:
 	if mode.id == "puzzle":
 		var got := "%d / %d" % [progress.total_stars(), PuzzleCatalog.count() * 3]
-		return ("STARS\n" + got) if short else ("★ " + got)
+		return ("STARS\n" + got) if short else (got + " STARS")
 	var key := _best_key(mode)
 	var best := HighScoreStore.new(save_path, key).load_best()
 	if mode.daily_seed:
@@ -240,12 +245,15 @@ func _refresh_cards() -> void:
 		card.queue_free()
 	var list: VBoxContainer = _pages["play"].get_child(0)
 	var pad := list.get_child(list.get_child_count() - 1)
+	var at := 1  # After the challenge button.
 	for id in Session.ORDER:
 		var mode := Session.load_mode(id)
 		var card := ModeCard.new()
 		card.setup(mode, _best_text(mode, true))
 		card.chosen.connect(_open_sheet)
 		list.add_child(card)
+		list.move_child(card, at)
+		at += 1
 	list.move_child(pad, -1)
 
 
@@ -270,11 +278,19 @@ func _on_theme_picked(theme_id: String) -> void:
 	t.tween_callback(func(): get_tree().reload_current_scene() if get_tree().current_scene == self else null)
 
 
-func _start_mode(mode: GameMode) -> void:
+func open_challenge() -> void:
+	var panel := ChallengePanel.new()
+	panel.play_requested.connect(func(ch: Dictionary):
+		_start_mode(Session.load_mode(ch["mode"]), ch))
+	_sheet.open_custom(panel, UIStyle.AQUA, _insets["bottom"])
+
+
+func _start_mode(mode: GameMode, challenge: Dictionary = {}) -> void:
 	if _leaving:
 		return
 	_leaving = true
 	Session.mode_id = mode.id
+	Session.challenge = challenge
 	var t := create_tween()
 	t.tween_property(_fade, "color:a", 1.0, 0.28)
 	t.tween_callback(func(): get_tree().change_scene_to_file(GAME_SCENE))

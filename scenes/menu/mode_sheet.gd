@@ -31,6 +31,26 @@ func _ready() -> void:
 	add_child(_panel)
 
 
+## Opens the sheet with any content (used for the challenge-code panel).
+func open_custom(content: Control, accent: Color, bottom_inset: float) -> void:
+	if _content:
+		_content.queue_free()
+	_panel.add_theme_stylebox_override("panel", _panel_box(accent, bottom_inset))
+	_content = VBoxContainer.new()
+	_content.add_theme_constant_override("separation", 14)
+	_panel.add_child(_content)
+	_content.add_child(content)
+	visible = true
+	is_open = true
+	mouse_filter = Control.MOUSE_FILTER_STOP
+	await get_tree().process_frame
+	var target_y := _panel.position.y
+	_panel.position.y = size.y
+	var t := create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	t.tween_property(_panel, "position:y", target_y, 0.32)
+	t.tween_property(_dim, "color:a", 0.62, 0.32)
+
+
 ## best_text: Callable(mode) -> String, re-evaluated when the difficulty changes.
 func open(p_mode: GameMode, best_text: Callable, bottom_inset: float, settings: PlayerSettings = null) -> void:
 	mode = p_mode

@@ -4,6 +4,39 @@ Newest entries first. Every "passed" below refers to a test run that was actuall
 
 ---
 
+## 2026-11-25 — Phase 8: Mass appeal (v0.8.0)
+
+Goal: spread and "one more try" through honest mechanics (no energy, no streak
+guilt, no fake near-misses — per the original brief).
+
+- **Tutorial coach** (first game of a new player; never in Daily/Puzzles/
+  challenges): animated hand, a starter planet in the flight path so the first
+  shot merges, three short captions. Replay from Settings.
+- **Supernova moments:** chain ×3 callout, ×4 slow motion (real-time timer,
+  always restored, also on exit), ×5+ "SUPERNOVA" with gold burst, camera punch
+  and shake (Camera2D so no physics body moves), chord + haptics.
+- **Challenge codes** (`ChallengeCode`): 70 bits (mode, difficulty, 32-bit seed,
+  score, 6-bit checksum) in Crockford base32, e.g. ORB-XXXX-XXXX-XXXXXX. Same
+  seed → identical planet sequence; played at the challenger's difficulty.
+  Live "BEAT 14,250" target, celebration when beaten, result on the end screen.
+- **Share card** (`ShareText`): Wordle-style 12-dot ladder + score + chain +
+  biggest planet + challenge code, copied to the clipboard.
+- **End screen:** biggest planet, best chain, one honest highlight line.
+
+### Issues found & fixed
+- Coach caption overlapped the gesture dots and the old hint; finger went off
+  screen; coach stayed after game over → layout and lifecycle fixed.
+- Web demo showed an empty box for "✦" (and "★" elsewhere): the built-in font
+  lacks them and browsers/phones have no system fallback. Replaced, and new test
+  `test_glyphs.gd` scans all drawn text against the font (mutation-checked).
+
+### Verification (executed)
+- Tests: **168 passed, 0 failed**. Bot stress runs (classic, blitz, binary): no errors.
+- Browser test (headless Chromium) of the web demo: loads, plays, no errors.
+- Demo republished. Not verified: real devices; clipboard inside claude.ai frame.
+
+---
+
 ## 2026-11-24 — Phase 7: Depth (modes, mechanics, options, progress, puzzles) — v0.7.0
 
 Built in six milestones, each tested, rendered, committed and pushed.

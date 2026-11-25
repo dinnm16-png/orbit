@@ -31,7 +31,7 @@ func _ready() -> void:
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(spacer)
-	head.add_child(UIStyle.label("★ %d / %d" % [progress.total_stars(), PuzzleCatalog.count() * 3], 20, Color("#FFD27A"), 2))
+	head.add_child(UIStyle.label("%d / %d STARS" % [progress.total_stars(), PuzzleCatalog.count() * 3], 20, Color("#FFD27A"), 2))
 	v.add_child(head)
 
 	var scroll := ScrollContainer.new()

@@ -83,6 +83,18 @@ var _store: HighScoreStore
 var _since_last_shot: float = 0.0
 var _status_text: String = ""
 var _pieces_rolled: int = 0
+## Seed of this game's planet sequence (shared in challenge codes).
+var game_seed: int = 0
+## Friend challenge being played ({} = none). See ChallengeCode.
+var challenge: Dictionary = {}
+var difficulty_level: int = Difficulty.Level.NORMAL
+## This game's highlights (end screen + share card).
+var game_biggest: int = -1
+var game_best_chain: int = 0
+var _challenge_beaten: bool = false
+var camera: Camera2D
+var coach: Coach
+var _shake: float = 0.0
 
 @onready var core: GravityCore = $GravityCore
 @onready var arena: ArenaRing = $Arena
@@ -120,6 +132,10 @@ func _enter_tree() -> void:
 	settings = PlayerSettings.new(save_path)
 	settings.load_settings()
 	progress = Progress.new(save_path).load_progress()
+	if Session.challenge.get("mode", "") == mode.id and puzzle.is_empty():
+		challenge = Session.challenge
+	# A challenge is played at the challenger's difficulty, so it is fair.
+	difficulty_level = int(challenge.get("difficulty", settings.difficulty))
 	# Locked themes (e.g. a save copied from elsewhere) fall back to Nebula.
 	var theme_id := settings.theme if progress.is_theme_unlocked(settings.theme) else "nebula"
 	Themes.apply(theme_id)
@@ -127,7 +143,7 @@ func _enter_tree() -> void:
 	# then difficulty and theme are layered on top.
 	config = mode.apply_to(config)
 	if mode.difficulty_applies:
-		config = Difficulty.apply(config, settings.difficulty)
+		config = Difficulty.apply(config, difficulty_level)
 	config.planet_colors = Themes.planet_colors(theme_id)
 	var errors := config.validate()
 	assert(errors.is_empty(), "Invalid GameConfig: %s" % ", ".join(errors))
@@ -143,11 +159,23 @@ func _enter_tree() -> void:
 func _ready() -> void:
 	date_key = DailySeed.today_key()
 	if random_seed != 0:
-		rng.seed = random_seed
+		game_seed = random_seed
+	elif not challenge.is_empty():
+		game_seed = int(challenge["seed"])  # Same planets as the challenger.
 	elif mode.daily_seed:
-		rng.seed = DailySeed.seed_for(date_key)
+		game_seed = DailySeed.seed_for(date_key)
 	else:
-		rng.randomize()
+		var r := RandomNumberGenerator.new()
+		r.randomize()
+		game_seed = r.randi()
+	rng.seed = game_seed
+
+	# A camera centered on the screen changes nothing on its own; it lets big
+	# moments shake and punch the view without moving any physics body.
+	camera = Camera2D.new()
+	camera.process_callback = Camera2D.CAMERA2D_PROCESS_PHYSICS  # Required with physics interpolation.
+	add_child(camera)
+	camera.make_current()
 
 	cores.append(core)
 	for i in range(1, mode.core_count):
@@ -169,7 +197,7 @@ func _ready() -> void:
 		arena_radius, config.game_over_speed_threshold, config.game_over_grace_time)
 	var key := mode.best_key(date_key)
 	if mode.difficulty_applies:
-		key += Difficulty.best_key_suffix(settings.difficulty)
+		key += Difficulty.best_key_suffix(difficulty_level)
 	_store = HighScoreStore.new(save_path, key)
 	best_score = _store.load_best()
 	pause_menu.settings = settings
@@ -196,6 +224,8 @@ func _ready() -> void:
 	game_over_panel.restart_requested.connect(restart)
 	game_over_panel.menu_requested.connect(go_to_menu)
 	game_over_panel.next_requested.connect(next_puzzle)
+	game_over_panel.share_requested.connect(_share)
+	$HUD.move_child(toast, -1)  # Toasts show above every overlay (e.g. "Copied").
 	pause_button.pressed.connect(pause)
 	pause_menu.resume_requested.connect(resume)
 	pause_menu.restart_requested.connect(restart)
@@ -204,6 +234,8 @@ func _ready() -> void:
 
 	_set_score(0)
 	_roll_next()
+	if _tutorial_wanted():
+		_start_tutorial()
 	_load_next_planet()
 	_update_status()
 
@@ -224,6 +256,7 @@ func _layout() -> void:
 	var bottom: float = insets["bottom"]
 	arena_center = rect.get_center()
 	arena.position = arena_center
+	camera.position = arena_center
 	var centers := []
 	for i in cores.size():
 		var offset := 0.0
@@ -399,7 +432,40 @@ func pulse() -> void:
 	feedback.on_pulse()
 
 
+# --- First-game tutorial -------------------------------------------------------------
+
+## Only for brand-new players, in a regular game (Daily must stay fair; tests
+## use fixed seeds and never get it).
+func _tutorial_wanted() -> bool:
+	var new_player := not settings.tutorial_done and progress.games_played == 0
+	return (new_player or settings.tutorial_replay) and random_seed == 0 \
+		and puzzle.is_empty() and challenge.is_empty() and not mode.daily_seed
+
+
+## A starter planet sits right in the flight path, and the first planets
+## match it: the very first shot straight up merges. An early win.
+func _start_tutorial() -> void:
+	next_level = 0
+	next_kind = PlanetKind.Kind.NORMAL
+	var r := config.get_planet_radius(0)
+	field.spawn_planet(0, cores[0].global_position + Vector2(0, config.core_radius + r + 3.0), true)
+	coach = Coach.new()
+	coach.launcher_pos = launcher.global_position
+	coach.ring_center = arena_center
+	coach.ring_radius = arena_radius
+	coach.caption_y = hint.position.y + 14.0
+	hint.visible = false  # The coach's captions replace the static hint.
+	$HUD.add_child(coach)
+	$HUD.move_child(coach, $HUD/Popups.get_index() + 1)
+	coach.finished.connect(func():
+		settings.tutorial_done = true
+		settings.tutorial_replay = false
+		settings.save_settings())
+
+
 func _on_planet_launched(planet: Planet) -> void:
+	if coach and is_instance_valid(coach):
+		coach.on_launch()
 	feedback.on_launch(planet.linear_velocity.length() / config.max_launch_speed)
 	if hint.visible:
 		create_tween().tween_property(hint, "modulate:a", 0.0, 0.6)
@@ -426,9 +492,80 @@ func _on_planets_merged(planet: Planet, chain_depth: int) -> void:
 		_apply_merge_mode_rules(planet, chain_depth)
 		_news(progress.on_merge(planet.level, chain_depth))
 		_check_puzzle_goal(planet)
+		game_biggest = maxi(game_biggest, planet.level)
+		game_best_chain = maxi(game_best_chain, chain_depth)
+		_chain_moment(planet, chain_depth)
+		if coach and is_instance_valid(coach):
+			coach.on_merge()
 		if mode.pulse_enabled:
 			pulse_charge = mini(pulse_charge + 1, config.pulse_merges_needed)
 			pulse_button.charge = float(pulse_charge) / config.pulse_merges_needed
+
+
+# --- Big moments ------------------------------------------------------------------
+
+## Chains escalate: ×3 gets a callout, ×4 adds slow motion, ×5+ is a
+## SUPERNOVA. The moment that makes players feel brilliant (and share it).
+func _chain_moment(planet: Planet, depth: int) -> void:
+	if depth < 3 or state != State.PLAYING:
+		return
+	var supernova := depth >= 5
+	var text := ("SUPERNOVA ×%d" if supernova else "CHAIN ×%d") % depth
+	var color := Color("#FFD27A") if supernova else UIStyle.AQUA
+	_callout(text, color, 46 + mini(depth, 8) * 3)
+	_shake = maxf(_shake, 4.0 + depth * 2.0)
+	if depth >= 4:
+		_slow_motion(0.35, 0.45 + 0.05 * mini(depth, 8))
+	if supernova:
+		_spawn_burst(planet.global_position, Color("#FFD27A"), planet.radius * 1.6, 2.6)
+		var t := create_tween()
+		t.tween_property(camera, "zoom", Vector2.ONE * 1.04, 0.08)
+		t.tween_property(camera, "zoom", Vector2.ONE, 0.35).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	feedback.on_chain(depth)
+
+
+func _callout(text: String, color: Color, font_size: int) -> void:
+	var label := UIStyle.label(text, font_size, color, 6, HORIZONTAL_ALIGNMENT_CENTER)
+	var rect := get_viewport().get_visible_rect()
+	label.size = Vector2(rect.size.x, font_size * 1.6)
+	label.position = Vector2(rect.position.x, arena_center.y - arena_radius - font_size * 1.7)
+	label.pivot_offset = label.size * 0.5
+	label.scale = Vector2.ONE * 0.6
+	$HUD/Popups.add_child(label)
+	var t := label.create_tween()
+	t.tween_property(label, "scale", Vector2.ONE * 1.08, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	t.tween_property(label, "scale", Vector2.ONE, 0.12)
+	t.tween_interval(0.7)
+	t.tween_property(label, "modulate:a", 0.0, 0.4)
+	t.tween_callback(label.queue_free)
+
+
+## Slow motion in real time, then back to normal (also on exit, see _exit_tree).
+func _slow_motion(scale: float, seconds: float) -> void:
+	Engine.time_scale = scale
+	get_tree().create_timer(seconds, true, false, true).timeout.connect(func(): Engine.time_scale = 1.0)
+
+
+func _process(delta: float) -> void:
+	if _shake > 0.0:
+		_shake = maxf(_shake - delta * 30.0, 0.0)
+		camera.offset = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * _shake
+	elif camera and camera.offset != Vector2.ZERO:
+		camera.offset = Vector2.ZERO
+
+
+func _exit_tree() -> void:
+	Engine.time_scale = 1.0  # Never leave the game in slow motion.
+
+
+## Friend challenge: the moment you pass the target score.
+func _check_challenge() -> void:
+	if challenge.is_empty() or _challenge_beaten or score <= int(challenge["score"]):
+		return
+	_challenge_beaten = true
+	toast.push([{"title": "CHALLENGE", "text": "Beaten! Now set a new record."}])
+	_callout("CHALLENGE BEATEN", Color("#FFD27A"), 40)
+	feedback.on_vanish()
 
 
 func _on_planets_vanished(at: Vector2, level: int, chain_depth: int) -> void:
@@ -480,6 +617,12 @@ func _spawn_burst(at: Vector2, color: Color, radius: float, strength: float) -> 
 func _set_score(value: int) -> void:
 	score = value
 	score_label.text = str(score)
+	if not challenge.is_empty():
+		var target := int(challenge["score"])
+		best_label.text = ("CHALLENGE  ·  BEAT %s" % ShareText.group(target)) if score <= target \
+			else ("CHALLENGE BEATEN  ·  +%s" % ShareText.group(score - target))
+		_check_challenge()
+		return
 	var best := maxi(best_score, score)
 	if not puzzle.is_empty():
 		best_label.text = "PUZZLE %d   ·   %s" % [puzzle["number"], PuzzleCatalog.goal_text(puzzle["goal"]).to_upper()]
@@ -618,6 +761,8 @@ func _end(reason: EndReason) -> void:
 	pause_button.visible = false
 	launcher.enabled = false
 	reload_timer.stop()
+	if coach and is_instance_valid(coach):
+		coach.advance(Coach.Step.DONE)  # Played a whole game: the tutorial counts as seen.
 	field.freeze_all()
 	if not puzzle.is_empty():
 		_present_puzzle_result(reason)
@@ -628,8 +773,48 @@ func _end(reason: EndReason) -> void:
 	if mode.daily_seed:
 		mode_title += " · " + DailySeed.pretty(date_key)
 	game_over_panel.present(score, best_score, is_new_best, END_TITLES[reason], mode_title)
+	game_over_panel.set_details(_summary_line(), _highlight_line(is_new_best), share_text())
 	feedback.on_game_over()
 	_commit_progress()
+
+
+## "Biggest: Verdant  ·  Best chain ×4"
+func _summary_line() -> String:
+	var parts := []
+	if game_biggest >= 0:
+		parts.append("Biggest: %s" % Progress.PLANET_NAMES[clampi(game_biggest, 0, 11)])
+	if game_best_chain >= 2:
+		parts.append("Best chain ×%d" % game_best_chain)
+	return "   ·   ".join(parts)
+
+
+## Honest near-miss / challenge result (only true statements).
+func _highlight_line(is_new_best: bool) -> String:
+	if not challenge.is_empty():
+		var diff := score - int(challenge["score"])
+		return ("CHALLENGE WON BY %s" % ShareText.group(diff)) if diff > 0 else ("%s SHORT OF THE CHALLENGE" % ShareText.group(-diff))
+	if not is_new_best and best_score > 0 and score >= best_score * 0.8 and score < best_score:
+		return "ONLY %s FROM YOUR BEST" % ShareText.group(best_score - score)
+	if game_biggest >= 0 and game_biggest < 11:
+		return "NEXT TO DISCOVER: %s" % Progress.PLANET_NAMES[game_biggest + 1].to_upper() \
+			if not progress.discovered_levels.has(game_biggest + 1) else ""
+	return ""
+
+
+## Spoiler-free result + a challenge code for friends.
+func share_text() -> String:
+	var code := ChallengeCode.encode(mode.id, game_seed, difficulty_level, score)
+	var sub := ""
+	if mode.daily_seed:
+		sub = DailySeed.pretty(date_key)
+	elif mode.difficulty_applies and difficulty_level != Difficulty.Level.NORMAL:
+		sub = Difficulty.NAMES[difficulty_level]
+	return ShareText.build(mode.title, sub, score, game_biggest, game_best_chain, code)
+
+
+func _share() -> void:
+	DisplayServer.clipboard_set(share_text())
+	toast.push([{"title": "COPIED", "text": "Paste it anywhere to challenge friends"}])
 
 
 func _present_puzzle_result(reason: EndReason) -> void:

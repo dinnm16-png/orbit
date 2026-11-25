@@ -10,6 +10,9 @@ const ORDER := ["classic", "puzzle", "zen", "daily", "blitz", "collapse", "limit
 
 static var mode_id: String = "classic"
 static var puzzle_index: int = 0
+## Active friend challenge ({} = none): {"mode", "seed", "difficulty", "score"}.
+## Survives restarts, so "Play again" is a rematch of the same challenge.
+static var challenge: Dictionary = {}
 ## Menu tab to show when the menu (re)opens.
 static var menu_tab: String = "play"
 

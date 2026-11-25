@@ -6,6 +6,7 @@ extends Control
 signal restart_requested
 signal menu_requested
 signal next_requested
+signal share_requested
 
 
 var _title_label: Label
@@ -15,6 +16,9 @@ var _best_label: Label
 var _button: Button
 var _menu_button: Button
 var _retry_button: Button
+var _share_button: Button
+var _summary_label: Label
+var _highlight_label: Label
 var _stars: StarRow
 
 
@@ -51,6 +55,13 @@ func _ready() -> void:
 	box.add_child(_stars)
 	_best_label = _make_label("", 24, Color(UIStyle.WHITE, 0.6))
 	box.add_child(_best_label)
+	_summary_label = _make_label("", 19, Color(UIStyle.WHITE, 0.55))
+	_summary_label.visible = false
+	box.add_child(_summary_label)
+	_highlight_label = _make_label("", 17, UIStyle.AQUA)
+	_highlight_label.add_theme_font_override("font", UIStyle.spaced_font(3))
+	_highlight_label.visible = false
+	box.add_child(_highlight_label)
 
 	var spacer := Control.new()
 	spacer.custom_minimum_size = Vector2(0, 40)
@@ -85,6 +96,15 @@ func _ready() -> void:
 	_menu_button.add_theme_stylebox_override("hover", _make_box(Color(UIStyle.WHITE, 0.06), quiet))
 	_menu_button.add_theme_stylebox_override("pressed", _make_box(Color(UIStyle.AQUA, 0.12), UIStyle.AQUA))
 	_menu_button.pressed.connect(func(): menu_requested.emit())
+	_share_button = _menu_button.duplicate()
+	_share_button.text = "SHARE RESULT"
+	_share_button.visible = false
+	_share_button.add_theme_color_override("font_color", UIStyle.AQUA)
+	_share_button.add_theme_stylebox_override("normal", _make_box(Color(UIStyle.AQUA, 0.08), Color(UIStyle.AQUA, 0.6)))
+	_share_button.pressed.connect(func(): share_requested.emit())
+	var share_row := CenterContainer.new()
+	share_row.add_child(_share_button)
+	box.add_child(share_row)
 	_retry_button = _menu_button.duplicate()
 	_retry_button.text = "RETRY"
 	_retry_button.visible = false
@@ -98,6 +118,15 @@ func _ready() -> void:
 
 
 var _primary_is_next: bool = false
+
+
+## End-screen extras: what happened, an honest highlight, and sharing.
+func set_details(summary: String, highlight: String, share_text: String) -> void:
+	_summary_label.text = summary
+	_summary_label.visible = summary != ""
+	_highlight_label.text = highlight
+	_highlight_label.visible = highlight != ""
+	_share_button.visible = share_text != ""
 
 
 func _on_primary() -> void:

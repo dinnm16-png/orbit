@@ -95,6 +95,13 @@ func on_special(event: String) -> void:
 	_vibrate(20 if event == "swallow" else 12, 0.5)
 
 
+## Big chains: a rising chord, stronger with depth.
+func on_chain(depth: int) -> void:
+	if depth >= 4:
+		_play("vanish", 0.85 + 0.05 * mini(depth, 8), -4.0)
+	_vibrate(25 + 8 * mini(depth, 8), clampf(0.4 + 0.1 * depth, 0.0, 1.0))
+
+
 func on_pulse() -> void:
 	_play("pulse", 1.0, 0.0)
 	_vibrate(35, 0.7)

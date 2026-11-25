@@ -79,6 +79,13 @@ Major architectural changes are proposed for approval before implementation.
 - [x] M6 30 puzzles in 6 chapters with stars; every puzzle verified solvable by a bot
 - [x] Tools: tools/balance.gd, tools/puzzle_check.gd, tools/capture.gd, tools/capture_menu.gd
 
+## ✅ Phase 8 — Mass appeal (done, v0.8.0)
+- [x] First-game tutorial coach (guaranteed first merge)
+- [x] Supernova chain moments (callout, slow motion, camera punch)
+- [x] Challenge codes: replay a friend's exact game, beat their score
+- [x] Wordle-style share card, honest end-screen highlights
+- [ ] Next: auto-replay clip of best chain, Game Center / Play Games leaderboards, "real orbit" mechanic, localization
+
 ## Later — store release (needs the owner: accounts, fees, signing key)
 - [ ] Google Play Console / Apple Developer accounts
 - [ ] Release signing key (see `docs/RELEASE_CHECKLIST.md`)

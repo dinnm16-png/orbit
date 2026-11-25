@@ -37,7 +37,7 @@ func _ready() -> void:
 	for id in Session.ORDER:
 		var mode := Session.load_mode(id)
 		if id == "puzzle":
-			add_child(_row(mode.title, "★ %d / %d" % [progress.total_stars(), PuzzleCatalog.count() * 3], mode.accent))
+			add_child(_row(mode.title, "%d / %d stars" % [progress.total_stars(), PuzzleCatalog.count() * 3], mode.accent))
 			continue
 		var key := mode.best_key(DailySeed.today_key())
 		if mode.difficulty_applies:

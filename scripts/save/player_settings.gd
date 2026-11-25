@@ -18,6 +18,10 @@ var difficulty: int = Difficulty.Level.NORMAL
 var aim_assist: bool = false
 ## Themes id.
 var theme: String = "nebula"
+## The first-game tutorial has been completed.
+var tutorial_done: bool = false
+## Player asked to see the tutorial again (Settings).
+var tutorial_replay: bool = false
 
 
 func _init(p_path: String = "user://orbit_save.cfg") -> void:
@@ -35,6 +39,8 @@ func load_settings() -> void:
 	difficulty = clampi(int(file.get_value(SECTION, "difficulty", difficulty)), 0, 2)
 	aim_assist = bool(file.get_value(SECTION, "aim_assist", aim_assist))
 	theme = str(file.get_value(SECTION, "theme", theme))
+	tutorial_done = bool(file.get_value(SECTION, "tutorial_done", tutorial_done))
+	tutorial_replay = bool(file.get_value(SECTION, "tutorial_replay", tutorial_replay))
 	if not Themes.exists(theme):
 		theme = "nebula"
 
@@ -49,4 +55,6 @@ func save_settings() -> bool:
 	file.set_value(SECTION, "difficulty", difficulty)
 	file.set_value(SECTION, "aim_assist", aim_assist)
 	file.set_value(SECTION, "theme", theme)
+	file.set_value(SECTION, "tutorial_done", tutorial_done)
+	file.set_value(SECTION, "tutorial_replay", tutorial_replay)
 	return file.save(path) == OK

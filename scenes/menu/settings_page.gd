@@ -50,6 +50,14 @@ func _ready() -> void:
 	_toggle("aim_assist", "Aim assist (show flight path)")
 	_section("ACCESSIBILITY")
 	_toggle("planet_numbers", "Planet numbers")
+	_section("HELP")
+	var replay := UIStyle.button("REPLAY TUTORIAL", false, UIStyle.VIOLET, 64)
+	replay.pressed.connect(func():
+		settings.tutorial_replay = true
+		settings.save_settings()
+		replay.text = "TUTORIAL ON FOR YOUR NEXT GAME"
+		replay.disabled = true)
+	add_child(replay)
 	var spacer := Control.new()
 	spacer.custom_minimum_size = Vector2(0, 30)
 	add_child(spacer)

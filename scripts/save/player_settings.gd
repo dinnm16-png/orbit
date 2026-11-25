@@ -20,6 +20,8 @@ var aim_assist: bool = false
 var theme: String = "nebula"
 ## The first-game tutorial has been completed.
 var tutorial_done: bool = false
+## Slow motion while aiming (Focus).
+var focus_aim: bool = true
 ## Player asked to see the tutorial again (Settings).
 var tutorial_replay: bool = false
 
@@ -40,6 +42,7 @@ func load_settings() -> void:
 	aim_assist = bool(file.get_value(SECTION, "aim_assist", aim_assist))
 	theme = str(file.get_value(SECTION, "theme", theme))
 	tutorial_done = bool(file.get_value(SECTION, "tutorial_done", tutorial_done))
+	focus_aim = bool(file.get_value(SECTION, "focus_aim", focus_aim))
 	tutorial_replay = bool(file.get_value(SECTION, "tutorial_replay", tutorial_replay))
 	if not Themes.exists(theme):
 		theme = "nebula"
@@ -56,5 +59,6 @@ func save_settings() -> bool:
 	file.set_value(SECTION, "aim_assist", aim_assist)
 	file.set_value(SECTION, "theme", theme)
 	file.set_value(SECTION, "tutorial_done", tutorial_done)
+	file.set_value(SECTION, "focus_aim", focus_aim)
 	file.set_value(SECTION, "tutorial_replay", tutorial_replay)
 	return file.save(path) == OK

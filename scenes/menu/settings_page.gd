@@ -48,6 +48,7 @@ func _ready() -> void:
 	_section("CONTROLS")
 	_toggle("movable_launcher", "Slide launcher sideways")
 	_toggle("aim_assist", "Aim assist (show flight path)")
+	_toggle("focus_aim", "Focus: slow motion while aiming")
 	_section("ACCESSIBILITY")
 	_toggle("planet_numbers", "Planet numbers")
 	_section("HELP")

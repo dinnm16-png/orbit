@@ -36,13 +36,13 @@ func _run() -> void:
 				pass
 		var ended: bool = main.state == main.State.GAME_OVER
 		results.append({"secs": frames / 60.0, "launches": launches, "score": main.score, "ended": ended,
-			"radius": main.arena_radius})
+			"radius": main.arena_radius, "stage": main.stage})
 		main.queue_free()
 		await process_frame
 	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://balance_save.cfg"))
 	var total_secs := 0.0
 	for r in results:
 		total_secs += r["secs"]
-		print("BAL %s  %5.0fs  %3d launches  score %6d  ended=%s  ring=%.0f" % [mode_id, r["secs"], r["launches"], r["score"], r["ended"], r["radius"]])
+		print("BAL %s  %5.0fs  %3d launches  score %6d  stage %2d  ended=%s" % [mode_id, r["secs"], r["launches"], r["score"], r["stage"], r["ended"]])
 	print("BAL %s  average %.0fs" % [mode_id, total_secs / results.size()])
 	quit()

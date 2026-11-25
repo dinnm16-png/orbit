@@ -77,7 +77,9 @@ func test_chain_reaction_merges_again_with_bonus() -> void:
 	await wait_physics_frames(60)
 	assert_eq(depths, [1, 2], "a merge, then a chained merge")
 	assert_eq(_levels(main), [2], "single level-2 planet")
-	assert_eq(main.score, 10 + 45, "level-1 (10) + level-2 at ×1.5 (45)")
+	# Level-1 (10), then level-2 at chain ×1.5 (45) which is also the 2nd merge of
+	# a combo (×1.25): 10 + round(45 × 1.25) = 66.
+	assert_eq(main.score, 10 + 56, "chain bonus and combo both applied")
 	await _cleanup(main)
 
 

@@ -13,3 +13,4 @@ specials = false
 pulse_enabled = false
 difficulty_applies = false
 shot_limit = 10
+escalates = false

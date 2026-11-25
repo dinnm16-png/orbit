@@ -13,6 +13,8 @@ signal planets_merged(new_planet: Planet, chain_depth: int)
 signal planets_vanished(position: Vector2, level: int, chain_depth: int)
 ## Special-planet effects: "downgrade", "shatter", "swallow".
 signal special_event(event: String, position: Vector2, color: Color)
+## A planet landed hard somewhere (dust + thud).
+signal planet_impact(position: Vector2, color: Color, speed: float)
 
 const PLANET_SCENE := preload("res://scenes/planet/planet.tscn")
 
@@ -51,6 +53,7 @@ func spawn_planet(level: int, at: Vector2, active: bool = false, velocity: Vecto
 	planet.born_time = time
 	planet.show_number = show_numbers
 	add_child(planet)
+	planet.impact.connect(func(p: Planet, speed: float): planet_impact.emit(p.global_position, p.base_color, speed))
 	if active:
 		planet.activate(velocity)
 	return planet

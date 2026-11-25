@@ -61,6 +61,9 @@ static func _generate_sounds() -> void:
 	result["shatter"] = ToneSynth.bell(1046.5, 0.35, 9.0)
 	result["swallow"] = ToneSynth.bell(110.0, 1.0, 3.0)
 	result["downgrade"] = ToneSynth.bell(392.0, 0.4, 7.0)
+	result["thump"] = ToneSynth.bell(58.0, 0.28, 12.0)
+	result["stage"] = ToneSynth.chord([261.63, 392.0, 523.25, 783.99], 1.6, 2.6)
+	result["focus"] = ToneSynth.whoosh(0.22)
 	_store_sounds.call_deferred(result)
 
 
@@ -100,6 +103,24 @@ func on_chain(depth: int) -> void:
 	if depth >= 4:
 		_play("vanish", 0.85 + 0.05 * mini(depth, 8), -4.0)
 	_vibrate(25 + 8 * mini(depth, 8), clampf(0.4 + 0.1 * depth, 0.0, 1.0))
+
+
+func on_heartbeat(strength: float) -> void:
+	_play("thump", 1.0, -6.0 + 6.0 * strength)
+	_vibrate(18, 0.25 + 0.4 * strength)
+
+
+func on_stage_up() -> void:
+	_play("stage", 1.0, 0.0)
+	_vibrate(45, 0.7)
+
+
+func on_focus(entering: bool) -> void:
+	_play("focus", 0.7 if entering else 1.2, -10.0)
+
+
+func on_impact(speed: float) -> void:
+	_play("thump", 1.6 + randf() * 0.3, -16.0 + minf(speed / 120.0, 6.0))
 
 
 func on_pulse() -> void:

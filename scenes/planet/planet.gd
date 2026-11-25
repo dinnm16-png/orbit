@@ -10,6 +10,8 @@ extends RigidBody2D
 ##   5. When merged, consume() removes it; PlanetField spawns the result.
 
 signal launched(planet: Planet)
+## A hard landing (for dust + a soft thud).
+signal impact(planet: Planet, speed: float)
 
 ## Level 0 is the smallest planet. Merging creates a new planet one level up.
 var level: int = 0
@@ -40,6 +42,8 @@ var show_number: bool = false:
 			if is_node_ready():
 				_overlay.queue_redraw()
 
+var _trail: Line2D
+var _last_speed: float = 0.0
 var _circle: CircleShape2D
 var _was_in_danger: bool = false
 var _grow_from: float = 0.0
@@ -97,6 +101,7 @@ func _ready() -> void:
 	if kind != PlanetKind.Kind.BLACK_HOLE:  # A black hole is drawn entirely by its overlay.
 		_visual.draw.connect(func(): PlanetArt.draw_body(_visual, radius, base_color))
 	_overlay.draw.connect(_draw_overlay)
+	body_entered.connect(_on_body_entered)
 	_visual.queue_redraw()
 	_overlay.queue_redraw()
 
@@ -147,9 +152,54 @@ func consume(fade: bool = false) -> void:
 func _physics_process(delta: float) -> void:
 	if is_active and not freeze:
 		_update_gravity_force()
+		_last_speed = linear_velocity.length()
+		_update_trail()
 	if _grow_elapsed < config.merge_grow_time:
 		_grow_elapsed += delta
 		_apply_grow(clampf(_grow_elapsed / config.merge_grow_time, 0.0, 1.0))
+
+
+## Motion trail while flying fast: speed you can see.
+func _update_trail() -> void:
+	var fast := _last_speed > 260.0
+	if fast and _trail == null:
+		_trail = Line2D.new()
+		_trail.top_level = true
+		_trail.width = radius * 1.1
+		var curve := Curve.new()
+		curve.add_point(Vector2(0, 0))
+		curve.add_point(Vector2(1, 1))
+		_trail.width_curve = curve
+		var g := Gradient.new()
+		g.set_color(0, Color(base_color, 0.0))
+		g.set_color(1, Color(base_color, 0.32))
+		_trail.gradient = g
+		_trail.joint_mode = Line2D.LINE_JOINT_ROUND
+		_trail.begin_cap_mode = Line2D.LINE_CAP_ROUND
+		_trail.end_cap_mode = Line2D.LINE_CAP_ROUND
+		_trail.material = FxTextures.additive()
+		add_child(_trail)
+	if _trail == null:
+		return
+	if fast:
+		_trail.add_point(global_position)
+		if _trail.get_point_count() > 12:
+			_trail.remove_point(0)
+	elif _trail.get_point_count() > 0:
+		_trail.remove_point(0)
+	else:
+		_trail.queue_free()
+		_trail = null
+
+
+func _on_body_entered(_body: Node) -> void:
+	if consumed or _last_speed < 280.0 or _grow_elapsed < config.merge_grow_time:
+		return
+	# Squash-and-recover pop on a hard landing.
+	var t := create_tween()
+	_visual.scale = Vector2.ONE * 0.86
+	t.tween_property(_visual, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	impact.emit(self, _last_speed)
 
 
 func _apply_grow(t: float) -> void:
@@ -169,6 +219,10 @@ func _apply_grow(t: float) -> void:
 ##   planet's gravity never changes, so now it can fall asleep and cost nothing.
 func _update_gravity_force() -> void:
 	var accel := OrbitPhysics.gravity_acceleration_multi(global_position, gravity_centers, config.gravity_strength)
+	if config.orbital_drift > 0.0 and accel.length_squared() > 0.0:
+		# Orbital wind: a sideways push (perpendicular to gravity) that slowly
+		# swirls the whole pile around the core at higher stages.
+		accel += accel.normalized().orthogonal() * config.orbital_drift
 	var desired := accel * mass
 	var tolerance := desired.length() * 0.01
 	if desired.distance_squared_to(constant_force) > tolerance * tolerance:

@@ -12,11 +12,9 @@ func test_merge_spawns_burst_that_frees_itself() -> void:
 	main.field.spawn_planet(0, main.core.global_position + Vector2(-17, -100), true)
 	main.field.spawn_planet(0, main.core.global_position + Vector2(17, -100), true)
 	await wait_physics_frames(10)
-	assert_eq(main.effects.get_child_count(), 1, "one burst for one merge")
-	for i in 60:
-		await tree.process_frame
-	await wait_physics_frames(30)
-	assert_eq(main.effects.get_child_count(), 0, "burst removed itself")
+	assert_eq(main.effects.get_child_count(), 2, "ring burst + explosion for one merge")
+	await tree.create_timer(2.0).timeout  # Effects run in real time.
+	assert_eq(main.effects.get_child_count(), 0, "all effects removed themselves")
 	main.queue_free()
 	await tree.process_frame
 

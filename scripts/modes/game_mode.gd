@@ -45,6 +45,8 @@ extends Resource
 @export var daily_seed: bool = false
 ## Special planets (wildcard, comet...) may appear.
 @export var specials: bool = true
+## Score-driven escalation (Orbit stages). Off for Zen and Puzzles.
+@export var escalates: bool = true
 ## Hold slot (store one planet, swap later).
 @export var hold_enabled: bool = true
 ## Gravity pulse ability (charged by merges).

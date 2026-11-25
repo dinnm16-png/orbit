@@ -65,7 +65,7 @@ func _place() -> void:
 
 func _draw() -> void:
 	for s in _stars:
-		draw_circle(Vector2(s.x, s.y), 0.6 + s.z * 1.1, Color(UIStyle.WHITE, 0.08 + s.z * 0.22), true, -1.0, true)
+		draw_rect(Rect2(Vector2(s.x, s.y) - Vector2.ONE * (0.6 + s.z), Vector2.ONE * (1.2 + s.z * 2.0)), Color(UIStyle.WHITE, 0.08 + s.z * 0.22))  # batched (see Starfield)
 	for o in ORBITS:
 		var pts := PackedVector2Array()
 		for i in 97:

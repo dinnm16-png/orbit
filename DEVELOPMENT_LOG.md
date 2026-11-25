@@ -4,6 +4,42 @@ Newest entries first. Every "passed" below refers to a test run that was actuall
 
 ---
 
+## 2026-11-25 — Phase 9: Tension, control and premium effects (v0.9.0)
+
+### Built
+- **Orbit stages I–X** (`Intensity`): each stage raises gravity and speed caps,
+  shortens reloads and game-over grace (min 1 s), adds planet sizes, more
+  comets/black holes, orbital wind, and tightens the ring 8 px. Applied in
+  place to the live config (planets share it). Off in Zen and Puzzles.
+  Score-only, so Daily and challenges stay identical for everyone.
+- **Combo** (`Combo`): merges within a shrinking window multiply points (to ×3).
+- **Focus:** time slows to 35% while aiming; meter drains and refills.
+  Time control via named requests (Focus, slow motion, hit-stop); slowest wins;
+  always restored (pause, game end, exit).
+- **Tension:** ring glows with "pressure"; red vignette + heartbeat in danger.
+- **Effects:** additive particle explosions, screen-space shockwave shader with
+  color split, hit-stop, impact squash + dust, flight trails, rolling score that
+  warms with stage, spinning starfield, stage-up banner, new sounds.
+
+### Measured and fixed
+- Balance (bot, `tools/balance.gd`): escalation first made Classic *easier*
+  (orbital wind caused merges; combos raced through stages): bot survived 400
+  launches at stage X. Retuned (higher thresholds, more planet sizes, ring
+  tightening, gentler wind): every run now ends, 78–122 s for the random bot,
+  stages V–VIII.
+- Performance: 676 draw calls during play. Causes: antialiased star circles
+  (~340 calls, not batched) and 72 separate dashed arcs on the ring (~220) →
+  batched rects and one multiline: **121 calls**. First shockwave froze ~240 ms
+  (shader compile) → effects pre-warmed during the fade-in: worst frame 45 ms
+  (software renderer), none over 50 ms.
+- Combo badge showed "×2." → robust number format (+ test).
+
+### Verification (executed)
+- Tests: **182 passed, 0 failed**. Browser test of the web build: loads, plays.
+- Not verified: real devices, sound, how stage pacing feels to humans.
+
+---
+
 ## 2026-11-25 — Phase 8: Mass appeal (v0.8.0)
 
 Goal: spread and "one more try" through honest mechanics (no energy, no streak

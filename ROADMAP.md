@@ -86,6 +86,12 @@ Major architectural changes are proposed for approval before implementation.
 - [x] Wordle-style share card, honest end-screen highlights
 - [ ] Next: auto-replay clip of best chain, Game Center / Play Games leaderboards, "real orbit" mechanic, localization
 
+## ✅ Phase 9 — Tension & premium feel (done, v0.9.0)
+- [x] Orbit stages I–X (score-driven escalation), combo multiplier, Focus slow-motion aiming
+- [x] Pressure ring, danger vignette + heartbeat
+- [x] Particle explosions, shockwave shader, hit-stop, trails, impact squash, rolling score, starfield
+- [ ] Playtest stage pacing with humans; tune thresholds from real data
+
 ## Later — store release (needs the owner: accounts, fees, signing key)
 - [ ] Google Play Console / Apple Developer accounts
 - [ ] Release signing key (see `docs/RELEASE_CHECKLIST.md`)

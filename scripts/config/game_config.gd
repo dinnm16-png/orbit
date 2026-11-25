@@ -75,6 +75,11 @@ const MAX_LEVELS := 12
 ## Short vibrations on phones (launch, merge, game over).
 @export var haptics_enabled: bool = true
 
+@export_group("Escalation")
+## Sideways "orbital wind" (px/s²) that swirls planets around the core.
+## 0 at the start; raised by Intensity at higher stages.
+@export var orbital_drift: float = 0.0
+
 @export_group("Special planets")
 ## Chance that a rolled planet is special (after special_min_launches).
 @export_range(0.0, 1.0) var special_chance: float = 0.07

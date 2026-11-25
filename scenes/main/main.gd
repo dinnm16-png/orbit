@@ -16,6 +16,11 @@ enum State { PLAYING, PAUSED, GAME_OVER }
 enum EndReason { COLLAPSE, TIME, SHOTS, PUZZLE_WIN, PUZZLE_FAIL }
 
 const BURST_SCRIPT := preload("res://scenes/effects/merge_burst.gd")
+## Time scale while aiming with Focus.
+const FOCUS_SCALE := 0.35
+## Real seconds of Focus from full, and to refill from empty.
+const FOCUS_DRAIN_SECONDS := 2.2
+const FOCUS_REFILL_SECONDS := 6.0
 const PULSE_WAVE := preload("res://scenes/effects/pulse_wave.gd")
 const SPECIAL_TEXT := {"downgrade": "−1", "shatter": "SHATTERED", "swallow": "SWALLOWED"}
 const CORE_SCENE := preload("res://scenes/core/gravity_core.tscn")
@@ -94,6 +99,21 @@ var game_best_chain: int = 0
 var _challenge_beaten: bool = false
 var camera: Camera2D
 var coach: Coach
+## Orbit stage (1..10) and the config before any stage was applied.
+var stage: int = 1
+var base_config: GameConfig
+var combo := Combo.new()
+## Focus meter 0..1 (slow motion while aiming).
+var focus: float = 1.0
+var fx: FxLayer
+var starfield: Starfield
+var stage_meter: StageMeter
+var combo_badge: ComboBadge
+var _aiming: bool = false
+var _time_requests: Dictionary = {}
+var _shown_score: float = 0.0
+var _beat_t: float = 0.0
+var _last_impact_ms: int = 0
 var _shake: float = 0.0
 
 @onready var core: GravityCore = $GravityCore
@@ -147,6 +167,8 @@ func _enter_tree() -> void:
 	config.planet_colors = Themes.planet_colors(theme_id)
 	var errors := config.validate()
 	assert(errors.is_empty(), "Invalid GameConfig: %s" % ", ".join(errors))
+	# Stages scale from this snapshot (the live config is edited in place).
+	base_config = config.duplicate()
 	# Children's _ready() runs before ours, so configure them here, first.
 	$GravityCore.setup(config)
 	$Launcher.setup(config)
@@ -172,6 +194,22 @@ func _ready() -> void:
 
 	# A camera centered on the screen changes nothing on its own; it lets big
 	# moments shake and punch the view without moving any physics body.
+	# Effects: a starfield behind everything, a full-screen FX layer between
+	# the world and the HUD, and new HUD widgets.
+	starfield = Starfield.new()
+	add_child(starfield)
+	move_child(starfield, 0)
+	fx = FxLayer.new()
+	add_child(fx)
+	$HUD.layer = 2
+	stage_meter = StageMeter.new()
+	stage_meter.visible = mode.escalates and puzzle.is_empty()
+	$HUD.add_child(stage_meter)
+	combo_badge = ComboBadge.new()
+	combo_badge.visible = false
+	$HUD.add_child(combo_badge)
+	combo.window = Intensity.combo_window(1)
+
 	camera = Camera2D.new()
 	camera.process_callback = Camera2D.CAMERA2D_PROCESS_PHYSICS  # Required with physics interpolation.
 	add_child(camera)
@@ -225,6 +263,9 @@ func _ready() -> void:
 	game_over_panel.menu_requested.connect(go_to_menu)
 	game_over_panel.next_requested.connect(next_puzzle)
 	game_over_panel.share_requested.connect(_share)
+	launcher.aim_started.connect(_on_aim_started)
+	launcher.aim_ended.connect(_on_aim_ended)
+	field.planet_impact.connect(_on_impact)
 	$HUD.move_child(toast, -1)  # Toasts show above every overlay (e.g. "Copied").
 	pause_button.pressed.connect(pause)
 	pause_menu.resume_requested.connect(resume)
@@ -238,6 +279,8 @@ func _ready() -> void:
 		_start_tutorial()
 	_load_next_planet()
 	_update_status()
+
+	_prewarm_fx.call_deferred()
 
 	# Soft fade-in from the menu (top of the HUD, ignores input).
 	_fade = UIStyle.fade_rect(1.0)
@@ -257,6 +300,10 @@ func _layout() -> void:
 	arena_center = rect.get_center()
 	arena.position = arena_center
 	camera.position = arena_center
+	starfield.position = arena_center
+	stage_meter.position = Vector2(rect.position.x, rect.position.y + top + 212.0)
+	stage_meter.size = Vector2(rect.size.x, 30.0)
+	combo_badge.position = Vector2(rect.get_center().x + 118.0, rect.position.y + top + 62.0)
 	var centers := []
 	for i in cores.size():
 		var offset := 0.0
@@ -292,7 +339,7 @@ func _layout() -> void:
 	status_label.position = Vector2(rect.position.x, rect.position.y + top + 182.0)
 	status_label.size.x = rect.size.x
 	pause_button.position = Vector2(rect.position.x + insets["left"] + 20.0, rect.position.y + top + 20.0)
-	toast.position = Vector2(rect.position.x, rect.position.y + top + 222.0)
+	toast.position = Vector2(rect.position.x, rect.position.y + top + 252.0)
 	toast.size.x = rect.size.x
 
 
@@ -486,8 +533,11 @@ func _on_planet_launched(planet: Planet) -> void:
 func _on_planets_merged(planet: Planet, chain_depth: int) -> void:
 	var points := ScoreRules.merge_points(
 		planet.level, chain_depth, config.merge_base_points, config.chain_bonus)
+	if state == State.PLAYING:
+		points = int(round(points * combo.hit()))
 	if _add_score(points, planet.global_position - Vector2(0, planet.radius + 14.0), chain_depth):
 		_spawn_burst(planet.global_position, planet.base_color, planet.radius, 1.0)
+		_merge_fx(planet)
 		feedback.on_merge(planet.level, chain_depth)
 		_apply_merge_mode_rules(planet, chain_depth)
 		_news(progress.on_merge(planet.level, chain_depth))
@@ -519,6 +569,8 @@ func _chain_moment(planet: Planet, depth: int) -> void:
 	if supernova:
 		_spawn_burst(planet.global_position, Color("#FFD27A"), planet.radius * 1.6, 2.6)
 		var t := create_tween()
+		_shockwave(planet.global_position, 0.03)
+		_hit_stop()
 		t.tween_property(camera, "zoom", Vector2.ONE * 1.04, 0.08)
 		t.tween_property(camera, "zoom", Vector2.ONE, 0.35).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	feedback.on_chain(depth)
@@ -540,13 +592,151 @@ func _callout(text: String, color: Color, font_size: int) -> void:
 	t.tween_callback(label.queue_free)
 
 
-## Slow motion in real time, then back to normal (also on exit, see _exit_tree).
+## Slow motion for `seconds` of real time (see the time requests below).
 func _slow_motion(scale: float, seconds: float) -> void:
-	Engine.time_scale = scale
-	get_tree().create_timer(seconds, true, false, true).timeout.connect(func(): Engine.time_scale = 1.0)
+	_set_time("slowmo", scale)
+	get_tree().create_timer(seconds, true, false, true).timeout.connect(_set_time.bind("slowmo", 1.0))
+
+
+# --- Time control --------------------------------------------------------------------
+# Several things may slow time at once (Focus, supernova, hit-stop). Each one
+# makes a named request; the slowest wins, and removing a request always
+# restores the right speed. _exit_tree resets everything.
+
+func _set_time(name: String, scale: float) -> void:
+	if scale >= 1.0:
+		_time_requests.erase(name)
+	else:
+		_time_requests[name] = scale
+	var s := 1.0
+	for v in _time_requests.values():
+		s = minf(s, v)
+	Engine.time_scale = s
+
+
+## A split-second freeze on a big impact: makes it land.
+func _hit_stop() -> void:
+	_set_time("hitstop", 0.05)
+	get_tree().create_timer(0.06, true, false, true).timeout.connect(_set_time.bind("hitstop", 1.0))
+
+
+# --- Effects -----------------------------------------------------------------------------
+
+## Renders each effect once, invisibly, during the fade-in. The GPU compiles a
+## shader the first time it is used, which froze the first shockwave for
+## ~240 ms (measured); paying that cost behind the fade hides it.
+func _prewarm_fx() -> void:
+	fx.prewarm()
+	var e := Explosion.new()
+	e.setup(Color.WHITE, 20.0, 1.0)
+	e.position = Vector2(-4000, -4000)  # Off screen.
+	add_child(e)
+
+func _explode(at: Vector2, color: Color, radius: float, power: float) -> void:
+	var e := Explosion.new()
+	e.setup(color, radius, power)
+	e.position = at
+	effects.add_child(e)
+
+
+## Screen-space shockwave from a world position.
+func _shockwave(at: Vector2, strength: float) -> void:
+	fx.shockwave(get_viewport().get_canvas_transform() * at, strength)
+
+
+## Explosion sized by the planet; big merges also bend the screen.
+func _merge_fx(planet: Planet) -> void:
+	_explode(planet.global_position, planet.base_color, planet.radius, 0.8 + planet.level * 0.12)
+	if planet.level >= 5:
+		_shockwave(planet.global_position, 0.010 + 0.003 * (planet.level - 5))
+	if planet.level >= 7:
+		_hit_stop()
+
+
+func _on_impact(at: Vector2, color: Color, speed: float) -> void:
+	var now := Time.get_ticks_msec()
+	if now - _last_impact_ms < 90 or state != State.PLAYING:
+		return
+	_last_impact_ms = now
+	_explode(at, Color(color, 0.6), 8.0, 0.4)
+	feedback.on_impact(speed)
+
+
+# --- Stages --------------------------------------------------------------------------------
+
+## Raises the Orbit stage when the score crosses a threshold.
+func _check_stage() -> void:
+	if not mode.escalates or not puzzle.is_empty():
+		return
+	stage_meter.fill = Intensity.progress(score)
+	var s := Intensity.stage_for(score)
+	if s <= stage:
+		return
+	stage = s
+	Intensity.apply(config, base_config, stage)
+	if mode.boundary_shrink_per_sec <= 0.0:
+		# The orbit tightens (Collapse already shrinks on its own).
+		var target := Intensity.ring_radius(base_arena_radius, stage)
+		create_tween().tween_property(self, "arena_radius", target, 0.8).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_monitor.grace_time = config.game_over_grace_time
+	reload_timer.wait_time = config.reload_delay
+	combo.window = Intensity.combo_window(stage)
+	stage_meter.stage = stage
+	starfield.speed = 0.012 + 0.011 * (stage - 1)
+	starfield.warp()
+	if state == State.PLAYING:
+		_stage_banner()
+
+
+func _stage_banner() -> void:
+	var gold := Color("#FFD27A")
+	_callout("ORBIT " + Intensity.NUMERALS[stage - 1], gold, 58)
+	var sub := UIStyle.label(Intensity.SUBTITLES[stage - 1].to_upper(), 18, Color(UIStyle.WHITE, 0.8), 4, HORIZONTAL_ALIGNMENT_CENTER)
+	var rect := get_viewport().get_visible_rect()
+	sub.size = Vector2(rect.size.x, 30)
+	sub.position = Vector2(rect.position.x, arena_center.y - arena_radius - 26.0)
+	$HUD/Popups.add_child(sub)
+	var t := sub.create_tween()
+	t.tween_interval(1.1)
+	t.tween_property(sub, "modulate:a", 0.0, 0.4)
+	t.tween_callback(sub.queue_free)
+	_shockwave(arena_center, 0.022)
+	_shake = maxf(_shake, 6.0)
+	feedback.on_stage_up()
+
+
+# --- Focus (slow motion while aiming) ------------------------------------------------
+
+func _on_aim_started() -> void:
+	_aiming = true
+	if settings.focus_aim and focus > 0.05 and state == State.PLAYING:
+		_set_time("focus", FOCUS_SCALE)
+		feedback.on_focus(true)
+
+
+func _on_aim_ended() -> void:
+	if _aiming and _time_requests.has("focus"):
+		feedback.on_focus(false)
+	_aiming = false
+	_set_time("focus", 1.0)
 
 
 func _process(delta: float) -> void:
+	var real := delta / maxf(Engine.time_scale, 0.01)
+	# Focus drains while aiming, refills otherwise.
+	if _aiming and _time_requests.has("focus"):
+		focus = maxf(focus - real / FOCUS_DRAIN_SECONDS, 0.0)
+		if focus <= 0.0:
+			_set_time("focus", 1.0)
+	elif not _aiming:
+		focus = minf(focus + real / FOCUS_REFILL_SECONDS, 1.0)
+	launcher.focus = focus
+	launcher.focus_enabled = settings.focus_aim
+	# Rolling score: counts up quickly and pops on every gain.
+	if _shown_score < score:
+		_shown_score = minf(score, _shown_score + maxf((score - _shown_score) * 12.0 * real, 40.0 * real))
+		score_label.text = str(int(_shown_score))
+	combo_badge.show_combo(combo.multiplier(), combo.fraction())
 	if _shake > 0.0:
 		_shake = maxf(_shake - delta * 30.0, 0.0)
 		camera.offset = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * _shake
@@ -555,7 +745,18 @@ func _process(delta: float) -> void:
 
 
 func _exit_tree() -> void:
+	_time_requests.clear()
 	Engine.time_scale = 1.0  # Never leave the game in slow motion.
+
+
+func _pop_score() -> void:
+	score_label.pivot_offset = score_label.size * 0.5
+	# Warmer as the stage climbs: white -> gold.
+	score_label.add_theme_color_override("font_color",
+		UIStyle.WHITE.lerp(Color("#FFD27A"), clampf((stage - 1) / 8.0, 0.0, 1.0)))
+	var t := score_label.create_tween()
+	score_label.scale = Vector2.ONE * 1.12
+	t.tween_property(score_label, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 ## Friend challenge: the moment you pass the target score.
@@ -572,6 +773,9 @@ func _on_planets_vanished(at: Vector2, level: int, chain_depth: int) -> void:
 	var points := ScoreRules.vanish_points(config.vanish_points, chain_depth, config.chain_bonus)
 	if _add_score(points, at, chain_depth):
 		_spawn_burst(at, UIStyle.WHITE, config.get_planet_radius(level), 2.0)
+		_explode(at, UIStyle.WHITE, config.get_planet_radius(level), 2.0)
+		_shockwave(at, 0.035)
+		_hit_stop()
 		feedback.on_vanish()
 
 
@@ -615,8 +819,14 @@ func _spawn_burst(at: Vector2, color: Color, radius: float, strength: float) -> 
 
 
 func _set_score(value: int) -> void:
+	var gained := value > score
 	score = value
-	score_label.text = str(score)
+	if value < _shown_score:
+		_shown_score = value
+		score_label.text = str(score)
+	if gained:
+		_pop_score()
+	_check_stage()
 	if not challenge.is_empty():
 		var target := int(challenge["score"])
 		best_label.text = ("CHALLENGE  ·  BEAT %s" % ShareText.group(target)) if score <= target \
@@ -694,6 +904,8 @@ func _physics_process(delta: float) -> void:
 	if state != State.PLAYING:
 		return
 	_play_time += delta
+	combo.tick(delta)
+	_update_tension(delta)
 
 	if mode.is_timed():
 		time_left = maxf(time_left - delta, 0.0)
@@ -748,6 +960,25 @@ func _physics_process(delta: float) -> void:
 
 # --- Game end ------------------------------------------------------------------
 
+## Pressure: how close the outermost planet is to the ring (ring glow), plus
+## a vignette and a heartbeat when a planet is actually in danger.
+func _update_tension(delta: float) -> void:
+	var edge := 0.0
+	for planet in field.get_active_planets():
+		edge = maxf(edge, (planet.global_position.distance_to(arena_center) + planet.radius) / arena_radius)
+	arena.pressure = clampf((edge - 0.72) / 0.28, 0.0, 1.0)
+	var danger := arena.danger
+	fx.tension = clampf(danger * 0.7 + arena.pressure * 0.1, 0.0, 0.75) if not mode.fade_outside_boundary else 0.0
+	if danger > 0.0:
+		_beat_t -= delta / maxf(Engine.time_scale, 0.01)
+		if _beat_t <= 0.0:
+			_beat_t = lerpf(0.85, 0.32, danger)
+			fx.heartbeat()
+			feedback.on_heartbeat(danger)
+	else:
+		_beat_t = 0.0
+
+
 ## Kept for tests and older callers: the classic "orbit collapsed" ending.
 func _game_over() -> void:
 	_end(EndReason.COLLAPSE)
@@ -761,6 +992,9 @@ func _end(reason: EndReason) -> void:
 	pause_button.visible = false
 	launcher.enabled = false
 	reload_timer.stop()
+	_time_requests.clear()
+	Engine.time_scale = 1.0
+	fx.tension = 0.0
 	if coach and is_instance_valid(coach):
 		coach.advance(Coach.Step.DONE)  # Played a whole game: the tutorial counts as seen.
 	field.freeze_all()
@@ -862,7 +1096,7 @@ func pause() -> void:
 	if state != State.PLAYING:
 		return
 	state = State.PAUSED
-	launcher.enabled = false  # Cancels any aim in progress.
+	launcher.enabled = false  # Cancels any aim in progress (ends Focus).
 	get_tree().paused = true
 	pause_menu.open()
 

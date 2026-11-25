@@ -10,6 +10,9 @@ extends Node2D
 ## for both phones and desktop testing, instead of two that can drift apart.
 
 signal planet_launched(planet: Planet)
+## Aiming began / ended (released, cancelled or disabled). Drives Focus.
+signal aim_started
+signal aim_ended
 
 
 var config: GameConfig
@@ -19,7 +22,11 @@ var enabled: bool = true:
 	set(value):
 		enabled = value
 		if not enabled:
+			var was_aiming := is_aiming()
 			_touch_index = -1
+			_gesture = Gesture.NONE
+			if was_aiming:
+				aim_ended.emit()
 			queue_redraw()
 
 ## Movable launcher: slide sideways along a track (see _unhandled_input).
@@ -27,6 +34,13 @@ var movable: bool = true:
 	set(value):
 		movable = value
 		queue_redraw()
+## Focus meter 0..1 (shown as an arc around the pad). Main updates it.
+var focus: float = 1.0:
+	set(value):
+		if not is_equal_approx(value, focus):
+			focus = value
+			queue_redraw()
+var focus_enabled: bool = true
 ## Aim assist: draw the predicted flight path while aiming.
 var aim_assist: bool = false:
 	set(value):
@@ -89,6 +103,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_slide_start_x = global_position.x
 			var on_pad := touch.position.distance_to(global_position) < loaded_planet.radius + 34.0
 			_gesture = Gesture.UNDECIDED if (movable and on_pad) else Gesture.AIM
+			if _gesture == Gesture.AIM:
+				aim_started.emit()
 			get_viewport().set_input_as_handled()
 		elif not touch.pressed and touch.index == _touch_index:
 			_drag_current = touch.position
@@ -96,8 +112,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 		elif touch.canceled and touch.index == _touch_index:
 			# OS interrupted the touch (e.g. notification): cancel, never fire.
+			var was_aiming := is_aiming()
 			_touch_index = -1
 			_gesture = Gesture.NONE
+			if was_aiming:
+				aim_ended.emit()
 			queue_redraw()
 	elif event is InputEventScreenDrag:
 		var drag := event as InputEventScreenDrag
@@ -108,6 +127,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				# Aiming pulls go mostly downward; a mostly sideways drag that
 				# started on the launcher means "move the launcher".
 				_gesture = Gesture.SLIDE if absf(delta.x) > 2.0 * absf(delta.y) else Gesture.AIM
+				if _gesture == Gesture.AIM:
+					aim_started.emit()
 			if _gesture == Gesture.SLIDE:
 				_slide_to(_slide_start_x + delta.x)
 			queue_redraw()
@@ -128,6 +149,7 @@ func _release() -> void:
 	if gesture == Gesture.SLIDE:
 		queue_redraw()
 		return  # Sliding never launches.
+	aim_ended.emit()
 	var velocity := current_launch_velocity()
 	if velocity != Vector2.ZERO and loaded_planet != null:
 		fire(velocity)
@@ -148,6 +170,10 @@ func fire(velocity: Vector2) -> void:
 func _draw() -> void:
 	# Launch pad: a subtle ring where the next planet waits.
 	draw_arc(Vector2.ZERO, 46.0, 0.0, TAU, 64, Color(UIStyle.VIOLET, 0.25), 1.2, true)
+	if focus_enabled and focus < 0.999:
+		# Focus meter: refills between shots.
+		draw_arc(Vector2.ZERO, 52.0, -PI / 2.0, -PI / 2.0 + TAU * focus, 64,
+			Color(UIStyle.AQUA, 0.35 if not is_aiming() else 0.8), 2.0, true)
 	if movable:
 		# Slide track with small chevrons at both ends.
 		var y := 62.0

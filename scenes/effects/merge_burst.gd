@@ -40,8 +40,5 @@ func _draw() -> void:
 	var ring_r := radius * lerpf(0.9, 1.6 + 0.4 * strength, ease_out)
 	draw_arc(Vector2.ZERO, ring_r, 0.0, TAU, 48, Color(c, 0.55 * fade), lerpf(4.0, 1.0, k) * strength, true)
 
-	# Sparks.
-	for i in SPARKS:
-		var dir := Vector2.from_angle(_spin + TAU * i / SPARKS)
-		var p := dir * radius * lerpf(0.8, 1.9 + 0.5 * strength, ease_out)
-		draw_circle(p, lerpf(3.0, 0.8, k) * strength, Color(c, 0.9 * fade), true, -1.0, true)
+	# (Sparks now come from Explosion's particles: one batched draw call instead
+	# of eight antialiased circles per burst.)
